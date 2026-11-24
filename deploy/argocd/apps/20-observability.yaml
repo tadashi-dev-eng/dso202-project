@@ -110,9 +110,10 @@ spec:
             existingSecret: grafana-admin          # SealedSecret (platform-secrets)
             userKey: admin-user
             passwordKey: admin-password
+          # First start runs ~400 database migrations: allow a burst of CPU.
           resources:
-            requests: {cpu: 20m, memory: 128Mi}
-            limits: {cpu: 500m, memory: 256Mi}
+            requests: {cpu: 50m, memory: 192Mi}
+            limits: {cpu: "1", memory: 384Mi}
           ingress:
             enabled: true
             ingressClassName: nginx

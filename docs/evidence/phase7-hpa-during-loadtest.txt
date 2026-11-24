@@ -177,3 +177,24 @@ taskflow-control-plane 1.362GiB / 8.729GiB taskflow-worker2 2.727GiB / 8.729GiB 
 api-gateway cpu: 5%/70% min=2 max=6 replicas=2
 notification-service 0/20 (avg) min=2 max=8 replicas=5
 task-service 0/10 2 min=8 max=2 replicas=3h15m
+taskflow-control-plane 1.352GiB / 8.729GiB taskflow-worker2 2.723GiB / 8.729GiB taskflow-worker 2.86GiB / 8.729GiB 
+=== 21:09:16
+api-gateway cpu: 5%/70% min=2 max=6 replicas=2
+notification-service 0/20 (avg) min=2 max=8 replicas=5
+task-service 0/10 2 min=8 max=2 replicas=3h15m
+taskflow-control-plane 1.348GiB / 8.729GiB taskflow-worker2 2.724GiB / 8.729GiB taskflow-worker 2.881GiB / 8.729GiB 
+=== 21:09:34
+api-gateway cpu: 4%/70% min=2 max=6 replicas=2
+notification-service 0/20 (avg) min=2 max=8 replicas=4
+task-service 0/10 2 min=8 max=2 replicas=3h15m
+taskflow-control-plane 1.32GiB / 8.729GiB taskflow-worker2 2.665GiB / 8.729GiB taskflow-worker 2.963GiB / 8.729GiB 
+=== 21:09:52
+api-gateway cpu: 5%/70% min=2 max=4 replicas=2
+notification-service 0/20 (avg) min=2 max=6 replicas=4
+task-service 0/10 2 min=6 max=2 replicas=3h16m
+taskflow-control-plane 1.252GiB / 8.729GiB taskflow-worker2 2.738GiB / 8.729GiB taskflow-worker 3.226GiB / 8.729GiB 
+=== 21:10:11
+api-gateway cpu: 5%/70% min=2 max=4 replicas=2
+notification-service 0/20 (avg) min=2 max=6 replicas=4
+task-service 0/10 2 min=6 max=2 replicas=3h16m
+taskflow-control-plane 1.315GiB / 8.729GiB taskflow-worker2 2.701GiB / 8.729GiB taskflow-worker 3.243GiB / 8.729GiB 

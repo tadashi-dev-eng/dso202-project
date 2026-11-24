@@ -19,6 +19,15 @@ patches:
       - op: replace
         path: /spec/type
         value: NodePort
+  # 3. The controller must run on the node labelled ingress-ready=true: only
+  #    that node's ports 80/443 are mapped to the host (cluster/kind-cluster.yaml).
+  #    Without this, a rescheduled controller (e.g. after an eviction) can land
+  #    on a worker and the site becomes unreachable.
+  - target: {kind: Deployment, name: ingress-nginx-controller}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector/ingress-ready
+        value: "true"
   - target: {kind: Job, name: ingress-nginx-admission-.*}
     patch: |-
       - op: add

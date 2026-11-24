@@ -15,8 +15,11 @@
 #   control plane   allocatable ~1.0 GiB  (DaemonSets + ingress controller;
 #                                          the rest is its own API server/etcd)
 #   each worker     allocatable ~2.9 GiB  (all workloads)
-#   eviction        a node evicts Pods when the VM has < 250 MiB free,
-#                   long before the kernel OOM-killer would act
+#   eviction        a worker evicts Pods when the VM has < 250 MiB free,
+#                   long before the kernel OOM-killer would act. The control
+#                   plane does not (threshold 50 MiB): kubelet measures the
+#                   whole shared VM, so it would evict its only evictable Pod,
+#                   the ingress controller, whenever the WORKERS were busy.
 #
 # With honest capacity, an autoscaler that wants more Pods than fit gets
 # Pending Pods (visible, recoverable) instead of a crashed node.
@@ -28,7 +31,8 @@ CLUSTER="${CLUSTER:-taskflow}"
 
 patch_node() {
   local node="$1" reserved="$2"
-  docker exec -i "$node" sh -s "$reserved" <<'EOF'
+  local evict="$3"
+  docker exec -i "$node" sh -s "$reserved" "$evict" <<'EOF'
 set -e
 f=/var/lib/kubelet/config.yaml
 # drop any earlier copy of our block, and kind's 0% eviction defaults
@@ -39,7 +43,7 @@ cat >> "$f" <<YAML
 systemReserved:
   memory: $1
 evictionHard:
-  memory.available: 250Mi
+  memory.available: $2
   nodefs.available: 5%
   imagefs.available: 5%
 # taskflow-capacity end
@@ -50,8 +54,8 @@ EOF
 
 for node in $(kind get nodes --name "$CLUSTER"); do
   case "$node" in
-    *control-plane) patch_node "$node" 7300Mi ;;
-    *)              patch_node "$node" 5400Mi ;;
+    *control-plane) patch_node "$node" 7300Mi 50Mi ;;
+    *)              patch_node "$node" 5400Mi 250Mi ;;
   esac
   echo "patched $node"
 done

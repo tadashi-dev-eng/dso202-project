@@ -1,8 +1,15 @@
 # TLS is terminated by the NGINX Ingress (argocd.taskflow.localhost), so the
 # API server itself serves plain HTTP inside the cluster.
+#
+# Repo-server timeouts are raised from 60 s to 300 s: on a slow connection,
+# downloading a large Helm repository index (prometheus-community) takes
+# longer than a minute and the Application would show "Unknown".
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-cmd-params-cm
 data:
   server.insecure: "true"
+  controller.repo.server.timeout.seconds: "300"
+  server.repo.server.timeout.seconds: "300"
+  reposerver.helm.manifest.max.extracted.size: "1G"

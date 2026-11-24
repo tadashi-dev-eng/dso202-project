@@ -48,9 +48,7 @@ task-service:
     podsMetric:
       name: http_requests_per_second
       target: "10"
-tag-service:
-  <<: *ha
-  replicaCount: 3
+tag-service: *ha
 comment-service: *ha
 attachment-service: *ha
 reminder-service: *ha

@@ -3,6 +3,10 @@
 # (a PDB on a single replica would block every node drain).
 global:
   environment: dev
+  # Parked: the 15 dev services run 0 Pods (their databases and data stay),
+  # freeing ~1.2 GB on the laptop cluster. Set to false when dev is needed
+  # (e.g. for a CI run); Argo CD scales everything back up.
+  paused: true
   config:
     LOG_LEVEL: DEBUG
 ingress:

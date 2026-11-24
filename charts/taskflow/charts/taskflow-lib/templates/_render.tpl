@@ -19,6 +19,7 @@ global:
   imageTag: ""
   serviceMonitors: false
   networkPolicies: false
+  paused: false
 nameOverride: ""
 tier: application
 replicaCount: 1

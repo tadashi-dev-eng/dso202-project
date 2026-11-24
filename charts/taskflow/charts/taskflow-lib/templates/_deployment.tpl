@@ -23,7 +23,11 @@ metadata:
   labels:
     {{- include "taskflow-lib.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
+  {{- if .Values.global.paused }}
+  # global.paused: the environment is parked (0 Pods, data kept) to save
+  # memory on the laptop cluster; set it to false to bring it back.
+  replicas: 0
+  {{- else if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   revisionHistoryLimit: 5

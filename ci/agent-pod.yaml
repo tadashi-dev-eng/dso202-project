@@ -1,0 +1,43 @@
+# ci/agent-pod.yaml -- the Kubernetes Pod each pipeline run executes in.
+# One Pod per build (Jenkins Kubernetes plugin), deleted afterwards.
+#
+#   tools   CI toolbox: python + service deps + pytest, git, helm, kubectl
+#   kaniko  builds and pushes images without a Docker daemon or privileges
+#   trivy   vulnerability scanner
+#
+# ServiceAccount jenkins-agent: bound (deploy/environments/base/rbac.yaml) to
+# the read-only ci-smoke-test Role in each environment, so the pipeline can
+# watch a rollout but cannot change anything in the cluster. Deployments
+# happen only through Git and Argo CD.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app.kubernetes.io/name: jenkins-agent
+    app.kubernetes.io/part-of: taskflow-platform
+spec:
+  serviceAccountName: jenkins-agent
+  containers:
+    - name: tools
+      image: localhost:5001/taskflow/ci-tools:0.1.0
+      command: [sleep]
+      args: [infinity]
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: "1", memory: 768Mi}
+    - name: kaniko
+      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+      command: [/busybox/cat]
+      tty: true
+      resources:
+        requests: {cpu: 200m, memory: 256Mi}
+        limits: {cpu: "2", memory: 1536Mi}
+    - name: trivy
+      image: aquasec/trivy:0.58.1
+      command: [cat]
+      tty: true
+      env:
+        - {name: TRIVY_CACHE_DIR, value: /home/jenkins/agent/.trivy-cache}
+      resources:
+        requests: {cpu: 50m, memory: 128Mi}
+        limits: {cpu: "1", memory: 1Gi}

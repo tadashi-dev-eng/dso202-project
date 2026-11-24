@@ -6,7 +6,7 @@
 #                              workloads: changes go through Git + Argo CD.
 #   group taskflow-viewers     the built-in "view" ClusterRole, this namespace only
 #   SA ci-smoke-test           what Jenkins' post-deploy check needs: read
-#                              Deployments/Pods to wait for a rollout. Nothing else.
+#   + SA cicd/jenkins-agent    Deployments/Pods to wait for a rollout. Nothing else.
 #
 # Workloads themselves have no API access at all (their ServiceAccounts
 # have no bindings and mount no token). Verified with `kubectl auth can-i`
@@ -99,3 +99,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: ci-smoke-test
+  - kind: ServiceAccount          # Jenkins agent Pods (cicd namespace)
+    name: jenkins-agent
+    namespace: cicd

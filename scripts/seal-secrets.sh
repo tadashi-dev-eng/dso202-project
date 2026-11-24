@@ -71,10 +71,14 @@ for ns in argocd observability cicd; do
           --from-literal=jenkins-admin-user=admin --from-file=jenkins-admin-password="$K/jenkins-admin" \
           --dry-run=client -o yaml
       fi
-      if [ "$ns" = cicd ] && [ -f "$KEYS/github-deploy-key" ]; then
+      if [ "$ns" = cicd ] && [ -s "$KEYS/github-token" ]; then
         echo "---"
-        kubectl create secret generic github-deploy-key -n "$ns" \
-          --from-file=ssh-privatekey="$K/github-deploy-key" --dry-run=client -o yaml
+        # Personal access token (public_repo scope) the pipeline pushes with.
+        # Whitespace/CR stripped; the value is never printed.
+        tr -d '\r\n ' < "$KEYS/github-token" > "$KEYS/.github-token.clean"
+        kubectl create secret generic github-push -n "$ns" --from-literal=username=git \
+          --from-file=password="$K/.github-token.clean" --dry-run=client -o yaml
+        rm -f "$KEYS/.github-token.clean"
       fi
     } | seal_stream
   } > "$out"

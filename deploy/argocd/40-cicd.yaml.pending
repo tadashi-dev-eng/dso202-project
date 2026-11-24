@@ -1,0 +1,103 @@
+# deploy/argocd/apps/40-cicd.yaml -- Jenkins (CI), delivered by Argo CD.
+#
+# Jenkins is configured entirely as code (JCasC): admin login from a
+# SealedSecret, the "taskflow" pipeline job (Job DSL) that runs the
+# repository's Jenkinsfile, polling main every 2 minutes, and the GitHub
+# push credential the pipeline uses to commit image tags. Builds run in
+# throw-away agent Pods (ci/agent-pod.yaml) in the cicd namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://charts.jenkins.io
+    chart: jenkins
+    targetRevision: 5.13.3            # Jenkins 2.580.2 LTS
+    helm:
+      releaseName: jenkins
+      valuesObject:
+        fullnameOverride: jenkins
+        controller:
+          admin:
+            createSecret: false
+            existingSecret: jenkins-admin         # SealedSecret (platform-secrets)
+          javaOpts: "-Xms256m -Xmx640m -XX:+UseG1GC"
+          resources:
+            requests: {cpu: 200m, memory: 768Mi}
+            limits: {cpu: "1500m", memory: 1280Mi}
+          numExecutors: 0                         # builds run in agent Pods only
+          jenkinsUrl: https://jenkins.taskflow.localhost
+          installLatestPlugins: true
+          additionalPlugins:
+            - job-dsl
+            - timestamper
+            - pipeline-graph-view
+            - junit
+          additionalExistingSecrets:
+            - {name: github-push, keyName: username}
+            - {name: github-push, keyName: password}
+          ingress:
+            enabled: true
+            ingressClassName: nginx
+            hostName: jenkins.taskflow.localhost
+            tls:
+              - hosts: [jenkins.taskflow.localhost]
+                secretName: taskflow-tls
+          JCasC:
+            configScripts:
+              welcome: |
+                jenkins:
+                  systemMessage: "TaskFlow CI -- configured as code (deploy/argocd/apps/40-cicd.yaml)"
+              credentials: |
+                credentials:
+                  system:
+                    domainCredentials:
+                      - credentials:
+                          - usernamePassword:
+                              scope: GLOBAL
+                              id: github-push
+                              description: Push image-tag commits to the GitOps repository
+                              username: "${github-push-username}"
+                              password: "${github-push-password}"
+              jobs: |
+                jobs:
+                  - script: >
+                      pipelineJob('taskflow') {
+                        description('Test, build, scan, deploy to dev via GitOps, promote to prod')
+                        properties { disableConcurrentBuilds() }
+                        triggers { pollSCM { scmpoll_spec('H/2 * * * *') } }
+                        definition {
+                          cpsScm {
+                            lightweight(true)
+                            scriptPath('Jenkinsfile')
+                            scm {
+                              git {
+                                remote { url('https://github.com/tadashi-dev-eng/dso202-project.git') }
+                                branch('*/main')
+                              }
+                            }
+                          }
+                        }
+                      }
+        agent:
+          namespace: cicd
+          # Pod templates come from ci/agent-pod.yaml in the repository.
+          podRetention: Never
+        serviceAccountAgent:
+          create: true
+          name: jenkins-agent
+        persistence:
+          size: 4Gi
+  destination: {server: https://kubernetes.default.svc, namespace: cicd}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+    retry:
+      limit: 5
+      backoff: {duration: 15s, factor: 2, maxDuration: 3m}

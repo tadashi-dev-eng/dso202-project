@@ -7,6 +7,8 @@ audit log, recurrence) that only appear if the events flowed.
 
     python scripts/smoke_test.py                                   # dev harness
     python scripts/smoke_test.py --base https://app.taskflow.localhost --insecure
+    # from inside the cluster (CI): the ingress controller Service + Host header
+    python scripts/smoke_test.py --base https://ingress-nginx-controller.ingress-nginx.svc         --host dev.taskflow.localhost --insecure
 
 Standard library only. Exit code 0 means every check passed.
 """
@@ -25,9 +27,10 @@ results: list[tuple[str, str, str]] = []
 
 
 class Client:
-    def __init__(self, base: str, insecure: bool):
+    def __init__(self, base: str, insecure: bool, host: str | None = None):
         self.base = base.rstrip("/") + "/api"
         self.ctx = ssl._create_unverified_context() if insecure else None
+        self.host = host
         self.token = None
 
     def call(self, method, path, body=None, raw=None, content_type=None):
@@ -40,6 +43,8 @@ class Client:
             data, headers["Content-Type"] = raw, content_type
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
+        if self.host:
+            headers["Host"] = self.host
         req = urllib.request.Request(self.base + path, data=data, method=method, headers=headers)
         try:
             with urllib.request.urlopen(req, context=self.ctx, timeout=20) as resp:
@@ -82,10 +87,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://localhost:8000")
     ap.add_argument("--insecure", action="store_true", help="accept the self-signed certificate")
+    ap.add_argument("--host", help="Host header (virtual host) when --base is not the public name")
     args = ap.parse_args()
 
     suffix = uuid.uuid4().hex[:8]
-    alice, bob = Client(args.base, args.insecure), Client(args.base, args.insecure)
+    alice, bob = (Client(args.base, args.insecure, args.host),
+                  Client(args.base, args.insecure, args.host))
 
     # 1-4: gateway, auth-service, user-service
     s, body = alice.call("GET", "/tasks")
@@ -148,6 +155,13 @@ def main() -> int:
     s, _ = alice.call("POST", "/reminders", {"task_id": task["id"], "remind_at": past})
     check("reminder-service schedules a reminder", s == 201, f"HTTP {s}")
 
+    # Completing a task cancels its pending reminders (by design), so wait
+    # until the scheduler (5 s tick) has fired this one before completing.
+    def reminder_sent():
+        s, rows = alice.call("GET", f"/reminders?task_id={task['id']}")
+        return s == 200 and any(r["status"] == "sent" for r in rows)
+    check("reminder-service fired the due reminder", bool(eventually(reminder_sent)))
+
     # 11: recurrence-service
     s, _ = alice.call("PUT", f"/recurrences/task/{task['id']}", {"frequency": "weekly"})
     check("recurrence-service stores a weekly rule", s == 200, f"HTTP {s}")
@@ -177,7 +191,7 @@ def main() -> int:
     hits = eventually(found)
     check("search-service indexed the comment from events", bool(hits),
           hits[0]["snippet"] if hits else "")
-    s, hits = Client(args.base, args.insecure).call("GET", "/search?q=x")
+    s, hits = Client(args.base, args.insecure, args.host).call("GET", "/search?q=x")
     check("search-service is not reachable anonymously", s == 401, f"HTTP {s}")
 
     # 14: analytics-service
@@ -199,7 +213,8 @@ def main() -> int:
     # web-frontend (only when served behind the Ingress)
     if not args.base.startswith("http://localhost:8000"):
         try:
-            with urllib.request.urlopen(args.base, context=alice.ctx, timeout=10) as resp:
+            req = urllib.request.Request(args.base, headers={"Host": args.host} if args.host else {})
+            with urllib.request.urlopen(req, context=alice.ctx, timeout=10) as resp:
                 html = resp.read().decode()
             check("web-frontend serves the app", "<div id=\"root\">" in html)
         except Exception as exc:  # noqa: BLE001

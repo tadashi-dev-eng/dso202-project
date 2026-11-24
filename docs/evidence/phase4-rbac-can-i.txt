@@ -1,0 +1,22 @@
+== taskflow-dev
+developer: list pods               yes
+developer: exec into pods          yes
+developer: delete (restart) pods   yes
+developer: read secrets            no
+developer: update deployments      no
+viewer: list deployments           yes
+viewer: delete pods                no
+ci-smoke-test: get deployments     yes
+ci-smoke-test: get secrets         no
+task-service SA: list pods         no
+== taskflow-prod
+developer: list pods               yes
+developer: exec into pods          no
+developer: delete (restart) pods   no
+developer: read secrets            no
+developer: update deployments      no
+viewer: list deployments           yes
+viewer: delete pods                no
+ci-smoke-test: get deployments     yes
+ci-smoke-test: get secrets         no
+task-service SA: list pods         no

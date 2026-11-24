@@ -1,0 +1,30 @@
+# deploy/environments/overlays/prod/kustomization.yaml
+# prod-like: same base, three differences --
+#   1. namespace taskflow-prod;
+#   2. a larger quota (2+ replicas per service, autoscaling headroom);
+#   3. developers are read-only: the exec, port-forward and Pod-delete rules
+#      are removed from their Role (JSON 6902 patch), so production changes
+#      only ever arrive through Git and Argo CD.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: taskflow-prod
+resources:
+  - ../../base
+patches:
+  - target: {kind: Namespace, name: taskflow-env}
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: taskflow-prod
+  - path: patch-quota.yaml
+  - target: {kind: Role, name: taskflow-developer}
+    patch: |-
+      # rules: [0] read, [1] logs, [2] exec/port-forward, [3] delete pods
+      - op: remove
+        path: /rules/3
+      - op: remove
+        path: /rules/2
+labels:
+  - pairs:
+      taskflow.io/environment: prod
+    includeSelectors: false

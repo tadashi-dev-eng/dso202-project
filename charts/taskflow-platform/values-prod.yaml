@@ -1,0 +1,13 @@
+# charts/taskflow-platform/values-prod.yaml -- prod-like sizing.
+environment: prod
+postgres:
+  storage: 5Gi
+  resources:
+    requests: {cpu: 200m, memory: 256Mi}
+    limits: {cpu: "2", memory: 768Mi}
+nats:
+  storage: 2Gi
+redis:
+  storage: 1Gi
+objectstore:
+  storage: 4Gi

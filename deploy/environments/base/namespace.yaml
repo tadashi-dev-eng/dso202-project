@@ -1,0 +1,14 @@
+# deploy/environments/base/namespace.yaml
+# Pod Security Admission "restricted" is ENFORCED: the API server rejects
+# any Pod that could run as root, escalate privileges, keep Linux
+# capabilities or skip seccomp. Every TaskFlow workload, including the
+# infrastructure StatefulSets and hook Jobs, is written to pass it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: taskflow-env          # replaced by each overlay
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

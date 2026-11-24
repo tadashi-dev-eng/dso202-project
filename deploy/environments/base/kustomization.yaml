@@ -1,0 +1,23 @@
+# deploy/environments/base/kustomization.yaml -- TaskFlow (DSO202 final project)
+#
+# What every TaskFlow environment namespace gets, before any workload:
+#   namespace.yaml     the Namespace, with Pod Security "restricted" enforced
+#   quota.yaml         ResourceQuota + LimitRange (multi-tenancy guard rails)
+#   rbac.yaml          developer / viewer / ci-smoke-test access
+#
+# Helm packages the application; Kustomize owns the environment around it.
+# The overlays only state what differs (name, sizes, prod access rules).
+#
+#   kubectl kustomize deploy/environments/overlays/prod     # render
+#   kubectl apply -k deploy/environments/overlays/prod      # apply
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - quota.yaml
+  - rbac.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: taskflow
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false

@@ -1,0 +1,84 @@
+$ kubectl get deploy,hpa,pdb -n taskflow-prod
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/analytics-service      2/2     2            2           97s
+deployment.apps/api-gateway            2/2     2            2           97s
+deployment.apps/attachment-service     2/2     2            2           97s
+deployment.apps/audit-service          2/2     2            2           97s
+deployment.apps/auth-service           2/2     2            2           97s
+deployment.apps/comment-service        2/2     2            2           97s
+deployment.apps/list-service           2/2     2            2           97s
+deployment.apps/notification-service   2/2     2            2           97s
+deployment.apps/recurrence-service     2/2     2            2           97s
+deployment.apps/reminder-service       2/2     2            2           97s
+deployment.apps/search-service         2/2     2            2           97s
+deployment.apps/tag-service            2/2     2            2           97s
+deployment.apps/task-service           2/2     2            2           97s
+deployment.apps/user-service           2/2     2            2           97s
+deployment.apps/web-frontend           2/2     2            2           97s
+
+NAME                                                       REFERENCE                         TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/api-gateway            Deployment/api-gateway            cpu: <unknown>/70%   2         6         2          97s
+horizontalpodautoscaler.autoscaling/notification-service   Deployment/notification-service   <unknown>/20 (avg)   2         8         2          97s
+horizontalpodautoscaler.autoscaling/task-service           Deployment/task-service           <unknown>/10         2         8         2          97s
+
+NAME                                              MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/analytics-service      1               N/A               1                     97s
+poddisruptionbudget.policy/api-gateway            1               N/A               1                     97s
+poddisruptionbudget.policy/attachment-service     1               N/A               1                     97s
+poddisruptionbudget.policy/audit-service          1               N/A               1                     97s
+poddisruptionbudget.policy/auth-service           1               N/A               1                     97s
+poddisruptionbudget.policy/comment-service        1               N/A               1                     97s
+poddisruptionbudget.policy/etcd                   2               N/A               1                     2m23s
+poddisruptionbudget.policy/list-service           1               N/A               1                     97s
+poddisruptionbudget.policy/notification-service   1               N/A               1                     97s
+poddisruptionbudget.policy/recurrence-service     1               N/A               1                     97s
+poddisruptionbudget.policy/reminder-service       1               N/A               1                     97s
+poddisruptionbudget.policy/search-service         1               N/A               1                     97s
+poddisruptionbudget.policy/tag-service            1               N/A               1                     97s
+poddisruptionbudget.policy/task-service           1               N/A               1                     97s
+poddisruptionbudget.policy/user-service           1               N/A               1                     97s
+poddisruptionbudget.policy/web-frontend           1               N/A               1                     97s
+
+$ kubectl describe quota -n taskflow-prod
+Name:                   taskflow-quota
+Namespace:              taskflow-prod
+Resource                Used     Hard
+--------                ----     ----
+limits.cpu              19500m   32
+limits.memory           9152Mi   16Gi
+persistentvolumeclaims  7        10
+pods                    37       80
+requests.cpu            1130m    4
+requests.memory         3248Mi   6Gi
+requests.storage        13056Mi  16Gi
+services.loadbalancers  0        0
+services.nodeports      0        0
+
+$ python scripts/smoke_test.py --base https://app.taskflow.localhost --insecure
+[PASS] api-gateway rejects a request without a token  (HTTP 401)
+[PASS] auth-service registers a user  (HTTP 201)
+[PASS] user-service returns the profile
+[PASS] auth-service rejects a bad refresh token  (HTTP 401)
+[PASS] list-service creates a list  (HTTP 201)
+[PASS] list-service hides another user's list  (HTTP 404)
+[PASS] list-service shares the list with Bob  (HTTP 201)
+[PASS] task-service creates a task  (HTTP 201)
+[PASS] task-service lets the shared member read it
+[PASS] tag-service tags the task  (HTTP 201/200)
+[PASS] comment-service adds a comment  (HTTP 201)
+[PASS] attachment-service stores a file  (HTTP 201)
+[PASS] attachment-service returns the same bytes  (HTTP 200)
+[PASS] reminder-service schedules a reminder  (HTTP 201)
+[PASS] recurrence-service stores a weekly rule  (HTTP 200)
+[PASS] task-service completes the task  (HTTP 200)
+[PASS] recurrence-service created the next occurrence
+[PASS] notification-service delivered the reminder
+[PASS] notification-service told Alice about Bob's comment
+[PASS] notification-service told Bob the task was completed
+[PASS] search-service indexed the comment from events  (Grafana «dashboards» next «d4607233»)
+[PASS] search-service is not reachable anonymously  (HTTP 401)
+[PASS] analytics-service counted the completion  (created=2 completed=1)
+[PASS] audit-service recorded the task's history  (attachment.added, comment.created, reminder.due, task.completed, task.created, task.tagged, task.updated)
+[PASS] web-frontend serves the app
+
+25/25 checks passed

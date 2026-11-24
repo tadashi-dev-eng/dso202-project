@@ -1,0 +1,101 @@
+# deploy/environments/base/rbac.yaml -- who may do what in an environment.
+#
+#   group taskflow-developers  Role taskflow-developer: read everything except
+#                              Secrets, read logs, exec/port-forward for
+#                              debugging, restart Pods. No create/update of
+#                              workloads: changes go through Git + Argo CD.
+#   group taskflow-viewers     the built-in "view" ClusterRole, this namespace only
+#   SA ci-smoke-test           what Jenkins' post-deploy check needs: read
+#                              Deployments/Pods to wait for a rollout. Nothing else.
+#
+# Workloads themselves have no API access at all (their ServiceAccounts
+# have no bindings and mount no token). Verified with `kubectl auth can-i`
+# in docs/evidence.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: taskflow-developer
+rules:
+  - apiGroups: ["", apps, batch, autoscaling, policy, networking.k8s.io, monitoring.coreos.com]
+    resources:
+      - pods
+      - services
+      - endpoints
+      - configmaps
+      - persistentvolumeclaims
+      - events
+      - deployments
+      - replicasets
+      - statefulsets
+      - jobs
+      - horizontalpodautoscalers
+      - poddisruptionbudgets
+      - networkpolicies
+      - ingresses
+      - servicemonitors
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get, list]
+  - apiGroups: [""]
+    resources: [pods/exec, pods/portforward]
+    verbs: [get, create]             # WebSocket exec (Kubernetes 1.30+) checks "get"
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [delete]                  # "restart" a Pod; the Deployment recreates it
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: taskflow-developers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: taskflow-developer
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: taskflow-developers
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: taskflow-viewers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: taskflow-viewers
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ci-smoke-test
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ci-smoke-test
+rules:
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-smoke-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ci-smoke-test
+subjects:
+  - kind: ServiceAccount
+    name: ci-smoke-test

@@ -1,0 +1,7 @@
+# Force LF in the repository and the working tree: shell scripts, YAML and
+# Dockerfiles run inside Linux containers, where CRLF breaks them.
+* text=auto eol=lf
+*.docx binary
+*.pptx binary
+*.png binary
+*.jpg binary

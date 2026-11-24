@@ -14,7 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONPATH=/srv/common:/srv
+    PYTHONPATH=/srv/common:/srv \n    PROMETHEUS_DISABLE_CREATED_SERIES=True
 
 # Fixed non-root UID: the Pod securityContext sets runAsNonRoot and the
 # same UID, and the root filesystem is mounted read-only.

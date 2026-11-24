@@ -1,0 +1,67 @@
+# dev/compose.yaml -- TaskFlow local smoke-test harness (NOT the deployment).
+# Runs the infrastructure plus the core services on one Docker network so
+# the service code can be exercised before it is packaged for Kubernetes.
+#
+#   docker compose -f dev/compose.yaml up -d --build
+#   curl http://localhost:8000/api
+#
+# Credentials here are throwaway development values.
+
+x-service: &service
+  build:
+    context: ../services
+    dockerfile: Dockerfile
+  restart: on-failure
+  environment: &env
+    NATS_URL: nats://nats:4222
+    REDIS_URL: redis://redis:6379/0
+    ETCD_ENDPOINT: http://etcd:2379
+    DB_HOST: postgres
+    JWT_SECRET: dev-only-secret
+    LOG_LEVEL: INFO
+  depends_on: [postgres, nats, redis, etcd]
+
+services:
+  postgres:
+    image: postgres:17.2-alpine
+    environment:
+      POSTGRES_PASSWORD: dev-admin
+    volumes:
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+  redis:
+    image: redis:7.4.1-alpine
+  nats:
+    image: nats:2.10.22-alpine
+    command: ["-js", "-m", "8222"]
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.17
+    command:
+      - etcd
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+
+  api-gateway:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: api-gateway}}
+    ports: ["127.0.0.1:8000:8000"]
+    environment: {<<: *env, POD_NAME: api-gateway, POD_IP: api-gateway}
+  auth-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: auth-service}}
+    environment: {<<: *env, POD_NAME: auth-service, POD_IP: auth-service,
+                  DB_NAME: auth, DB_USER: auth, DB_PASSWORD: dev-auth}
+  user-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: user-service}}
+    environment: {<<: *env, POD_NAME: user-service, POD_IP: user-service,
+                  DB_NAME: users, DB_USER: users, DB_PASSWORD: dev-users}
+  list-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: list-service}}
+    environment: {<<: *env, POD_NAME: list-service, POD_IP: list-service,
+                  DB_NAME: lists, DB_USER: lists, DB_PASSWORD: dev-lists}
+  task-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: task-service}}
+    environment: {<<: *env, POD_NAME: task-service, POD_IP: task-service,
+                  DB_NAME: tasks, DB_USER: tasks, DB_PASSWORD: dev-tasks}

@@ -1,0 +1,48 @@
+# cluster/kind-cluster.yaml -- TaskFlow (DSO202 final project)
+# Three-node kind cluster: one control plane, two workers.
+#
+#   kind create cluster --config cluster/kind-cluster.yaml
+#
+# * Node image pinned by digest (same image as the DSO202 practicals), so the
+#   cluster is rebuilt identically every time.
+# * The control plane is labelled ingress-ready=true and maps host ports
+#   80/443: the ingress-nginx controller binds them with hostPort, which makes
+#   https://app.taskflow.localhost reachable from the Windows host directly.
+#   Names under .localhost resolve to 127.0.0.1 without DNS (RFC 6761).
+# * containerd reads per-registry config from /etc/containerd/certs.d, where
+#   scripts/setup-registry.sh points localhost:5001 at the local registry
+#   container. Images are pushed once and pulled by every node.
+# * Workers carry a topology label (zone-a / zone-b) so PodDisruptionBudgets,
+#   anti-affinity and topology spread can be demonstrated across "zones".
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: taskflow
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+    labels:
+      ingress-ready: "true"
+      taskflow.io/node-role: edge
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+  - role: worker
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+    labels:
+      topology.kubernetes.io/zone: zone-a
+      taskflow.io/node-role: worker
+  - role: worker
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+    labels:
+      topology.kubernetes.io/zone: zone-b
+      taskflow.io/node-role: worker

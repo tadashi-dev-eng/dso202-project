@@ -1,0 +1,44 @@
+# .gitignore -- TaskFlow (DSO202 final project)
+# Committed first so that no credential or local artefact can reach Git.
+
+# Workflow notes for the assistant, not part of the project
+INSTRUCTIONS.md
+
+# Windows / OneDrive / Office noise
+desktop.ini
+Thumbs.db
+~$*
+
+# Credentials and generated key material -- never committed.
+# Secrets reach the cluster as SealedSecrets or are created by scripts.
+*.key
+*.pem
+*.crt
+*.p12
+*.kubeconfig
+.env
+.env.*
+secrets/
+!charts/**/secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node / frontend build output
+node_modules/
+dist/
+.vite/
+
+# Helm packaging output and fetched dependencies
+charts/*/charts/*.tgz
+*.tgz
+
+# Load-test and scratch output
+loadtest/results/
+*.log

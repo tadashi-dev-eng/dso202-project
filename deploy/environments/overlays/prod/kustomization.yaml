@@ -10,6 +10,7 @@ kind: Kustomization
 namespace: taskflow-prod
 resources:
   - ../../base
+  - sealed-secrets.yaml      # credentials, encrypted (scripts/seal-secrets.sh)
 patches:
   - target: {kind: Namespace, name: taskflow-env}
     patch: |-

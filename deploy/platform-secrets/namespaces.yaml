@@ -1,0 +1,13 @@
+# Namespaces for the add-ons, created here so their SealedSecrets can be
+# applied before the add-on charts arrive.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels: {app.kubernetes.io/part-of: taskflow-platform}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cicd
+  labels: {app.kubernetes.io/part-of: taskflow-platform}

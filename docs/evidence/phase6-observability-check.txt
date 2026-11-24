@@ -1,0 +1,38 @@
+### Grafana dashboards (loaded from Git by the sidecar)
+  TaskFlow - Application - /d/taskflow-app/taskflow-application
+  TaskFlow - Infrastructure - /d/taskflow-infra/taskflow-infrastructure
+### Data sources
+  Alertmanager alertmanager alertmanager
+  Loki loki loki
+  Prometheus prometheus prometheus
+  Tempo tempo tempo
+### Prometheus: TaskFlow targets up
+  {'namespace': 'taskflow-prod'} 32
+### Loki: log lines in the last 15 min by service (taskflow-prod)
+  api-gateway 596
+  task-service 576
+  user-service 576
+  list-service 575
+  reminder-service 574
+  notification-service 572
+  analytics-service 566
+  search-service 566
+### Tempo: recent traces (root service, root span, duration)
+  67da08edf9998963 list-service SELECT Nonems
+  129d77c5919e2c18 api-gateway POST 6ms
+  84d79679b171a0e3 recurrence-service SELECT Nonems
+  5508b746b1f4ab28 tag-service POST 8ms
+  7e2204709636e34b recurrence-service POST 7ms
+  27940316de00d130 notification-service POST 4ms
+  46671b667fe77113 api-gateway GET /api/{resource} 2089ms
+  340b47555035d66c api-gateway POST /api/{resource} 71456ms
+### One request traced across services (spans per service)
+  trace bf222517a932e357874958d8ca771b
+    api-gateway  GET x1
+    api-gateway  GET /api/{resource} x1
+    api-gateway  GET /api/{resource} http receive x2
+    api-gateway  GET /api/{resource} http send x4
+    api-gateway  INCRBY x1
+    task-service  GET /tasks x1
+    task-service  GET /tasks http send x3
+    task-service  SELECT x2

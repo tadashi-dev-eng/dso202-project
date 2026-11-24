@@ -1,0 +1,107 @@
+### 2026-11-24 22:08 UTC final state
+
+$ kubectl get applications -n argocd
+NAME                       SYNC STATUS   HEALTH STATUS
+alloy                      Synced        Healthy
+argocd-config              Synced        Healthy
+dev-environment            Synced        Healthy
+dev-platform               Synced        Healthy
+dev-taskflow               Synced        Healthy
+ingress-nginx              Synced        Healthy
+kube-prometheus-stack      Synced        Healthy
+loki                       Synced        Healthy
+metrics-server             Synced        Healthy
+observability-config       Synced        Healthy
+otel-collector             Synced        Healthy
+platform-secrets           Synced        Healthy
+prod-environment           Synced        Healthy
+prod-platform              Synced        Healthy
+prod-taskflow              Synced        Healthy
+prometheus-adapter         Synced        Healthy
+prometheus-operator-crds   Synced        Healthy
+root                       Synced        Healthy
+sealed-secrets             Synced        Healthy
+tempo                      Synced        Healthy
+
+$ kubectl get deploy,hpa,pdb -n taskflow-prod
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/analytics-service      2/2     2            2           4h15m
+deployment.apps/api-gateway            2/2     2            2           4h15m
+deployment.apps/attachment-service     2/2     2            2           4h15m
+deployment.apps/audit-service          2/2     2            2           4h15m
+deployment.apps/auth-service           2/2     2            2           4h15m
+deployment.apps/comment-service        2/2     2            2           4h15m
+deployment.apps/list-service           2/2     2            2           4h15m
+deployment.apps/notification-service   2/2     2            2           4h15m
+deployment.apps/recurrence-service     2/2     2            2           4h15m
+deployment.apps/reminder-service       2/2     2            2           4h15m
+deployment.apps/search-service         2/2     2            2           4h15m
+deployment.apps/tag-service            2/2     2            2           4h15m
+deployment.apps/task-service           2/2     2            2           4h15m
+deployment.apps/user-service           2/2     2            2           4h15m
+deployment.apps/web-frontend           2/2     2            2           4h15m
+
+NAME                                                       REFERENCE                         TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/api-gateway            Deployment/api-gateway            cpu: 3%/70%   2         4         2          4h15m
+horizontalpodautoscaler.autoscaling/notification-service   Deployment/notification-service   0/20 (avg)    2         6         2          4h15m
+horizontalpodautoscaler.autoscaling/task-service           Deployment/task-service           0/10          2         6         2          4h15m
+
+NAME                                              MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/analytics-service      1               N/A               1                     4h15m
+poddisruptionbudget.policy/api-gateway            1               N/A               1                     4h15m
+poddisruptionbudget.policy/attachment-service     1               N/A               1                     4h15m
+poddisruptionbudget.policy/audit-service          1               N/A               1                     4h15m
+poddisruptionbudget.policy/auth-service           1               N/A               1                     4h15m
+poddisruptionbudget.policy/comment-service        1               N/A               1                     4h15m
+poddisruptionbudget.policy/etcd                   2               N/A               1                     4h15m
+poddisruptionbudget.policy/list-service           1               N/A               1                     4h15m
+poddisruptionbudget.policy/notification-service   1               N/A               1                     4h15m
+poddisruptionbudget.policy/recurrence-service     1               N/A               1                     4h15m
+poddisruptionbudget.policy/reminder-service       1               N/A               1                     4h15m
+poddisruptionbudget.policy/search-service         1               N/A               1                     4h15m
+poddisruptionbudget.policy/tag-service            1               N/A               1                     4h15m
+poddisruptionbudget.policy/task-service           1               N/A               1                     4h15m
+poddisruptionbudget.policy/user-service           1               N/A               1                     4h15m
+poddisruptionbudget.policy/web-frontend           1               N/A               1                     4h15m
+
+$ kubectl get statefulset,pvc -n taskflow-prod
+NAME                           READY   AGE
+statefulset.apps/etcd          3/3     4h15m
+statefulset.apps/nats          1/1     4h15m
+statefulset.apps/objectstore   1/1     4h15m
+statefulset.apps/postgres      1/1     4h15m
+statefulset.apps/redis         1/1     4h15m
+
+NAME                                       STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/data-etcd-0          Bound    pvc-e78d36ba-99aa-4d78-8ae1-3d6517edf8c8   256Mi      RWO            standard       <unset>                 4h15m
+persistentvolumeclaim/data-etcd-1          Bound    pvc-8e0d3ebf-ea53-4639-85e4-e3c2db6fa293   256Mi      RWO            standard       <unset>                 4h15m
+persistentvolumeclaim/data-etcd-2          Bound    pvc-ac180914-cc76-4066-b504-dcac1f51de5f   256Mi      RWO            standard       <unset>                 4h15m
+persistentvolumeclaim/data-nats-0          Bound    pvc-c711fe69-c3c5-4714-a8e2-2624c334bdb1   2Gi        RWO            standard       <unset>                 4h15m
+persistentvolumeclaim/data-objectstore-0   Bound    pvc-4f0e4780-938b-4ff1-ba81-7b9d92adb7db   4Gi        RWO            standard       <unset>                 4h15m
+persistentvolumeclaim/data-postgres-0      Bound    pvc-a254b161-bcb1-422a-86dc-30b19b2df8a8   5Gi        RWO            standard       <unset>                 4h15m
+persistentvolumeclaim/data-redis-0         Bound    pvc-05d921ca-6716-4bdc-bf24-9c954781561f   1Gi        RWO            standard       <unset>                 4h15m
+
+$ kubectl get pods -n observability
+NAME                                                READY   STATUS    RESTARTS      AGE
+alertmanager-kps-alertmanager-0                     2/2     Running   0             90m
+alloy-655b6d48d5-p4n5w                              2/2     Running   0             101m
+grafana-5c96b8f6df-5mtsf                            3/3     Running   0             73m
+kps-operator-598cc55855-7dh9r                       1/1     Running   1 (69m ago)   92m
+loki-0                                              2/2     Running   0             101m
+observability-kube-state-metrics-5dbfb46988-bxn5x   1/1     Running   0             92m
+observability-prometheus-node-exporter-2ktpz        1/1     Running   1 (67m ago)   92m
+observability-prometheus-node-exporter-62tdj        1/1     Running   0             92m
+observability-prometheus-node-exporter-z2b2r        1/1     Running   0             19m
+otel-collector-f6db67b7d-fsd5j                      1/1     Running   2 (67m ago)   110m
+prometheus-adapter-65c88dc8b9-p8mdk                 1/1     Running   0             93m
+prometheus-kps-prometheus-0                         2/2     Running   0             9m55s
+tempo-0                                             1/1     Running   0             3m15s
+
+$ kubectl get nodes (allocatable)
+NODE                     CAPACITY    ALLOCATABLE
+taskflow-control-plane   9152736Ki   1626336Ki
+taskflow-worker          9152736Ki   3367136Ki
+taskflow-worker2         9152736Ki   3367136Ki
+
+$ python scripts/smoke_test.py --base https://app.taskflow.localhost --insecure
+26/26 checks passed

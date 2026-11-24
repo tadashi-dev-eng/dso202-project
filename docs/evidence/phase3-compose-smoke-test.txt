@@ -1,0 +1,26 @@
+[PASS] api-gateway rejects a request without a token  (HTTP 401)
+[PASS] auth-service registers a user  (HTTP 201)
+[PASS] user-service returns the profile
+[PASS] auth-service rejects a bad refresh token  (HTTP 401)
+[PASS] list-service creates a list  (HTTP 201)
+[PASS] list-service hides another user's list  (HTTP 404)
+[PASS] list-service shares the list with Bob  (HTTP 201)
+[PASS] task-service creates a task  (HTTP 201)
+[PASS] task-service lets the shared member read it
+[PASS] tag-service tags the task  (HTTP 201/200)
+[PASS] comment-service adds a comment  (HTTP 201)
+[PASS] attachment-service stores a file  (HTTP 201)
+[PASS] attachment-service returns the same bytes  (HTTP 200)
+[PASS] reminder-service schedules a reminder  (HTTP 201)
+[PASS] recurrence-service stores a weekly rule  (HTTP 200)
+[PASS] task-service completes the task  (HTTP 200)
+[PASS] recurrence-service created the next occurrence
+[PASS] notification-service delivered the reminder
+[PASS] notification-service told Alice about Bob's comment
+[PASS] notification-service told Bob the task was completed
+[PASS] search-service indexed the comment from events  (Grafana «dashboards» next «25c7e469»)
+[PASS] search-service is not reachable anonymously  (HTTP 401)
+[PASS] analytics-service counted the completion  (created=2 completed=1)
+[PASS] audit-service recorded the task's history  (attachment.added, comment.created, reminder.due, task.completed, task.created, task.tagged, task.updated)
+
+24/24 checks passed

@@ -33,6 +33,15 @@ services:
   nats:
     image: nats:2.10.22-alpine
     command: ["-js", "-m", "8222"]
+  objectstore:
+    # S3-compatible store for attachments (SeaweedFS: MinIO no longer
+    # publishes container images).
+    image: chrislusf/seaweedfs:3.97
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333",
+              "-s3.config=/etc/seaweedfs/s3.json",
+              "-master.volumeSizeLimitMB=64", "-volume.max=20"]
+    volumes:
+      - ./s3.json:/etc/seaweedfs/s3.json:ro
   etcd:
     image: quay.io/coreos/etcd:v3.5.17
     command:
@@ -65,3 +74,46 @@ services:
     build: {context: ../services, args: {SERVICE: task-service}}
     environment: {<<: *env, POD_NAME: task-service,
                   DB_NAME: tasks, DB_USER: tasks, DB_PASSWORD: dev-tasks}
+  tag-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: tag-service}}
+    environment: {<<: *env, POD_NAME: tag-service,
+                  DB_NAME: tags, DB_USER: tags, DB_PASSWORD: dev-tags}
+  comment-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: comment-service}}
+    environment: {<<: *env, POD_NAME: comment-service,
+                  DB_NAME: comments, DB_USER: comments, DB_PASSWORD: dev-comments}
+  attachment-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: attachment-service}}
+    environment: {<<: *env, POD_NAME: attachment-service,
+                  DB_NAME: attachments, DB_USER: attachments, DB_PASSWORD: dev-attachments, S3_ENDPOINT: 'objectstore:8333'}
+  reminder-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: reminder-service}}
+    environment: {<<: *env, POD_NAME: reminder-service,
+                  DB_NAME: reminders, DB_USER: reminders, DB_PASSWORD: dev-reminders}
+  recurrence-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: recurrence-service}}
+    environment: {<<: *env, POD_NAME: recurrence-service,
+                  DB_NAME: recurrence, DB_USER: recurrence, DB_PASSWORD: dev-recurrence}
+  notification-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: notification-service}}
+    environment: {<<: *env, POD_NAME: notification-service}
+  search-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: search-service}}
+    environment: {<<: *env, POD_NAME: search-service,
+                  DB_NAME: search, DB_USER: search, DB_PASSWORD: dev-search}
+  analytics-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: analytics-service}}
+    environment: {<<: *env, POD_NAME: analytics-service}
+  audit-service:
+    <<: *service
+    build: {context: ../services, args: {SERVICE: audit-service}}
+    environment: {<<: *env, POD_NAME: audit-service,
+                  DB_NAME: audit, DB_USER: audit, DB_PASSWORD: dev-audit}

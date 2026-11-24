@@ -297,9 +297,11 @@ spec:
         fullnameOverride: tempo
         tempo:
           retention: 48h
+          # 320 Mi was OOM-killed after the load test (its WAL held ~45 req/s
+          # of traces); 512 Mi with 25% sampling in prod is stable.
           resources:
-            requests: {cpu: 20m, memory: 96Mi}
-            limits: {cpu: 500m, memory: 320Mi}
+            requests: {cpu: 20m, memory: 160Mi}
+            limits: {cpu: 500m, memory: 512Mi}
           receivers:
             jaeger: null
             opencensus: null

@@ -1,0 +1,20 @@
+### 1. Drift: someone scales tag-service by hand
+$ kubectl scale deploy tag-service -n taskflow-prod --replicas=1
+21:47:36
+deployment.apps/tag-service scaled
+21:47:39 spec.replicas back to 2 (Argo CD selfHeal reverted the manual change)
+successfully synced (all tasks run) at 2026-11-24T21:47:36Z
+
+### 2. A change through Git: tag-service 2 -> 3 replicas
+warning: in the working copy of 'charts/taskflow/values-prod.yaml', CRLF will be replaced by LF the next time Git touches it
+21:47:51 pushed 44ed9d1 demo(gitops): scale tag-service to 3 replicas in prod
+21:48:03 tag-service ready replicas: 3
+
+### 3. Rollback = git revert
+21:48:06 pushed 8cf941b Revert "demo(gitops): scale tag-service to 3 replicas in prod"
+21:48:18 tag-service ready replicas: 2
+
+Argo CD sync history for prod-taskflow (last 3):
+1  d8e97aed4a24f60f9e4dfcccfc5e926fb64beda0  2026-11-24T21:09:41Z
+2  44ed9d14e382844f1449f568639b6dd482bacf5f  2026-11-24T21:47:58Z
+3  8cf941bdc4494f759527707758c9fe9cf0fa1be0  2026-11-24T21:48:12Z

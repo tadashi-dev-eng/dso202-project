@@ -13,7 +13,7 @@ global:
   environment: prod
   config:
     LOG_LEVEL: INFO
-    OTEL_TRACES_SAMPLER_ARG: "0.5"   # sample half the traces in prod
+    OTEL_TRACES_SAMPLER_ARG: "0.25"  # sample a quarter of the traces in prod (Tempo memory)
 ingress:
   host: app.taskflow.localhost
 

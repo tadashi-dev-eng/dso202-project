@@ -1,0 +1,33 @@
+
+=== 1. pod-kill (task-service + api-gateway)
+    deleting task-service-64fb4ff5cd-q9npr
+    deleting api-gateway-54bc9975bb-bxqwj
+    probes during experiment: 99/99 succeeded = 100.0% over 28s
+
+=== 2. drain (application tier of one worker)
+    draining application Pods from taskflow-worker (PDBs honoured)
+    20 Pods evicted; PDB refusals while waiting: 6
+    uncordoned taskflow-worker
+    probes during experiment: 325/325 succeeded = 100.0% over 105s
+
+=== 3. etcd member loss
+    deleted etcd-1 (2 of 3 members remain: quorum kept)
+    http://etcd-0.etcd-hl.taskflow-prod.svc:2379 is healthy: successfully committed proposal: took = 6.471022ms
+    http://etcd-1.etcd-hl.taskflow-prod.svc:2379 is healthy: successfully committed proposal: took = 7.465369ms
+    http://etcd-2.etcd-hl.taskflow-prod.svc:2379 is healthy: successfully committed proposal: took = 18.173193ms
+    probes during experiment: 94/94 succeeded = 100.0% over 26s
+
+=== 4. NATS restart
+    nats-0 back; JetStream state reloaded from its PV
+    probes during experiment: 85/85 succeeded = 100.0% over 23s
+
+=== 5. PostgreSQL restart (persistence)
+    task 'persist-25fa60' still present after the restart: True
+    probes during experiment: 102/104 succeeded = 98.1% over 33s
+
+=== summary
+  1. pod-kill (task-service + api-gateway)       100.0%  (99/99 probes)
+  2. drain (application tier of one worker)      100.0%  (325/325 probes)
+  3. etcd member loss                            100.0%  (94/94 probes)
+  4. NATS restart                                100.0%  (85/85 probes)
+  5. PostgreSQL restart (persistence)             98.1%  (102/104 probes)

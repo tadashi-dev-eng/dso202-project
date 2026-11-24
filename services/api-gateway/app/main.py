@@ -62,8 +62,16 @@ AUTH_FAILED = Counter("gateway_auth_failures_total", "Requests with a missing or
                       ["reason"])
 LIMIT_GAUGE = Gauge("gateway_rate_limit_per_minute", "Rate limit currently in force")
 
+BREAKER_OPEN = Counter("gateway_circuit_open_total",
+                       "Requests short-circuited because the upstream is failing", ["upstream"])
+
 _limit = {"value": DEFAULT_LIMIT, "checked": 0.0}
 _instances: dict[str, tuple[float, list[dict]]] = {}
+# Circuit breaker: upstream -> monotonic time until which it is skipped.
+# An unreachable service then costs every caller nothing instead of a
+# connect timeout each, so one failing service cannot tie up the gateway.
+BREAKER_SECONDS = env_int("CIRCUIT_BREAKER_SECONDS", 10)
+_broken: dict[str, float] = {}
 
 
 async def _startup(c) -> None:
@@ -153,8 +161,12 @@ async def proxy(request: Request, resource: str, path: str = ""):
         return JSONResponse({"detail": "rate limit exceeded"}, status_code=429,
                             headers={"Retry-After": str(60 - int(time.time()) % 60)})
 
-    # 1 + 4. route to a discovered instance
-    headers = {k: v for k, v in request.headers.items()
+    # 1 + 4. route to a discovered instance (unless the breaker is open)
+    if _broken.get(service, 0) > time.monotonic():
+        BREAKER_OPEN.labels(service).inc()
+        return JSONResponse({"detail": f"{service} unavailable (circuit open)"}, status_code=503,
+                            headers={"Retry-After": str(BREAKER_SECONDS)})
+    headers ={k: v for k, v in request.headers.items()
                if k.lower() not in HOP_BY_HOP and k.lower() != "x-user-id"}
     if user_id:
         headers["X-User-Id"] = user_id
@@ -168,7 +180,7 @@ async def proxy(request: Request, resource: str, path: str = ""):
                                headers=headers, content=body)
     try:
         upstream = await client.send(req, stream=True)
-    except httpx.ConnectError:
+    except (httpx.ConnectError, httpx.ConnectTimeout):
         # Stale registry entry (Pod gone, lease not yet expired): use DNS.
         _instances.pop(service, None)
         how = "dns-fallback"
@@ -177,6 +189,9 @@ async def proxy(request: Request, resource: str, path: str = ""):
         try:
             upstream = await client.send(req, stream=True)
         except httpx.HTTPError:
+            _broken[service] = time.monotonic() + BREAKER_SECONDS
+            ctx.log.warning("upstream unreachable, circuit opened",
+                            extra={"fields": {"upstream": service}})
             UPSTREAM.labels(service, how, "502").inc()
             return JSONResponse({"detail": f"{service} unavailable"}, status_code=502)
     except httpx.TimeoutException:

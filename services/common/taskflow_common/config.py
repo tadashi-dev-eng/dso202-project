@@ -7,6 +7,15 @@ environment.
 """
 
 import os
+import socket
+
+
+def _own_ip() -> str:
+    """The container's own address, used when POD_IP is not injected."""
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except OSError:
+        return "127.0.0.1"
 
 
 def env(name: str, default: str | None = None) -> str | None:
@@ -25,7 +34,8 @@ def env_float(name: str, default: float) -> float:
 SERVICE_NAME = env("SERVICE_NAME", "unknown-service")
 SERVICE_VERSION = env("SERVICE_VERSION", "dev")
 POD_NAME = env("POD_NAME", "local")
-POD_IP = env("POD_IP", "127.0.0.1")
+# In Kubernetes the Downward API injects POD_IP (status.podIP).
+POD_IP = env("POD_IP") or _own_ip()
 NAMESPACE = env("POD_NAMESPACE", "default")
 PORT = env_int("PORT", 8000)
 LOG_LEVEL = env("LOG_LEVEL", "INFO")

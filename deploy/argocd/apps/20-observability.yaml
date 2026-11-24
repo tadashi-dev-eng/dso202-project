@@ -1,0 +1,458 @@
+# deploy/argocd/apps/20-observability.yaml -- the three pillars + autoscaling metrics.
+#
+#   metrics   kube-prometheus-stack: Prometheus (+ Operator), Alertmanager,
+#             Grafana, kube-state-metrics, node-exporter
+#             metrics-server        -> CPU/memory for the api-gateway HPA
+#             prometheus-adapter    -> custom (Pods) and external metrics for
+#                                      the task-service / notification-service HPAs
+#   traces    opentelemetry-collector (OTLP from every service) -> Tempo
+#   logs      Alloy (tails Pod logs through the API) -> Loki
+#   config    deploy/observability: dashboards (as code) and alert rules
+#
+# Everything is sized for a laptop kind cluster (single replicas, short
+# retention, explicit memory limits); docs/capacity-plan.md has the numbers.
+# Grafana: https://grafana.taskflow.localhost (admin login: SealedSecret).
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-5"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://kubernetes-sigs.github.io/metrics-server
+    chart: metrics-server
+    targetRevision: 3.14.0
+    helm:
+      valuesObject:
+        # kind kubelets serve self-signed certificates.
+        args: [--kubelet-insecure-tls]
+        resources:
+          requests: {cpu: 20m, memory: 48Mi}
+          limits: {cpu: 200m, memory: 96Mi}
+  destination: {server: https://kubernetes.default.svc, namespace: kube-system}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-5"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 93.10.0
+    helm:
+      releaseName: observability
+      valuesObject:
+        fullnameOverride: kps
+        crds: {enabled: false}            # installed by prometheus-operator-crds
+        # kind binds these control-plane components to 127.0.0.1, so they
+        # cannot be scraped; their rules would only raise false alerts.
+        kubeControllerManager: {enabled: false}
+        kubeScheduler: {enabled: false}
+        kubeEtcd: {enabled: false}
+        kubeProxy: {enabled: false}
+        defaultRules:
+          rules:
+            etcd: false
+            kubeControllerManager: false
+            kubeSchedulerAlerting: false
+            kubeSchedulerRecording: false
+            kubeProxy: false
+        prometheusOperator:
+          resources:
+            requests: {cpu: 20m, memory: 48Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+        prometheus:
+          prometheusSpec:
+            # Select every ServiceMonitor / PrometheusRule in the cluster,
+            # not only those carrying this release's label.
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            scrapeInterval: 15s
+            evaluationInterval: 15s
+            retention: 2d
+            retentionSize: 2GB
+            resources:
+              requests: {cpu: 100m, memory: 384Mi}
+              limits: {cpu: "1", memory: 900Mi}
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: [ReadWriteOnce]
+                  resources: {requests: {storage: 3Gi}}
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests: {cpu: 10m, memory: 24Mi}
+              limits: {cpu: 100m, memory: 64Mi}
+        kube-state-metrics:
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 100m, memory: 96Mi}
+        prometheus-node-exporter:
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 48Mi}
+        grafana:
+          fullnameOverride: grafana
+          admin:
+            existingSecret: grafana-admin          # SealedSecret (platform-secrets)
+            userKey: admin-user
+            passwordKey: admin-password
+          resources:
+            requests: {cpu: 20m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          ingress:
+            enabled: true
+            ingressClassName: nginx
+            hosts: [grafana.taskflow.localhost]
+            tls:
+              - hosts: [grafana.taskflow.localhost]
+                secretName: taskflow-tls
+          grafana.ini:
+            server:
+              root_url: https://grafana.taskflow.localhost
+            analytics:
+              check_for_updates: false
+              reporting_enabled: false
+          # Dashboards are code: ConfigMaps labelled grafana_dashboard=1
+          # (deploy/observability) are loaded by the sidecar.
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: ALL
+              folderAnnotation: grafana_folder
+              provider: {foldersFromFilesStructure: true}
+          additionalDataSources:
+            - name: Loki
+              uid: loki
+              type: loki
+              url: http://loki.observability:3100
+              jsonData:
+                # Jump from a log line to its trace (trace_id in every
+                # service's JSON logs, sent as structured metadata).
+                derivedFields:
+                  - name: trace_id
+                    matcherType: label
+                    matcherRegex: trace_id
+                    datasourceUid: tempo
+                    url: "$${__value.raw}"
+            - name: Tempo
+              uid: tempo
+              type: tempo
+              url: http://tempo.observability:3200
+              jsonData:
+                tracesToLogsV2:
+                  datasourceUid: loki
+                  spanStartTimeShift: -5m
+                  spanEndTimeShift: 5m
+                  filterByTraceID: true
+                  customQuery: true
+                  query: '{namespace=~"taskflow-.*"} | trace_id="$${__span.traceId}"'
+                serviceMap:
+                  datasourceUid: prometheus
+                nodeGraph: {enabled: true}
+  destination: {server: https://kubernetes.default.svc, namespace: observability}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [ServerSideApply=true]
+    retry:
+      limit: 5
+      backoff: {duration: 15s, factor: 2, maxDuration: 3m}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-adapter
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-4"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus-adapter
+    targetRevision: 5.4.2
+    helm:
+      valuesObject:
+        prometheus:
+          url: http://kps-prometheus.observability.svc
+          port: 9090
+        resources:
+          requests: {cpu: 20m, memory: 48Mi}
+          limits: {cpu: 200m, memory: 128Mi}
+        rules:
+          default: false
+          # custom.metrics.k8s.io -- per-Pod request rate for task-service:
+          #   http_requests_per_second = rate(http_server_requests_total[1m])
+          custom:
+            - seriesQuery: 'http_server_requests_total{namespace!="",pod!=""}'
+              resources:
+                overrides:
+                  namespace: {resource: namespace}
+                  pod: {resource: pod}
+              name:
+                matches: ^http_server_requests_total$
+                as: http_requests_per_second
+              metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)'
+          # external.metrics.k8s.io -- JetStream backlog of the
+          # notification consumer, the same value whichever replica reports it.
+          external:
+            - seriesQuery: 'taskflow_notification_backlog{namespace!=""}'
+              resources:
+                overrides:
+                  namespace: {resource: namespace}
+              name:
+                matches: ^taskflow_notification_backlog$
+                as: taskflow_notification_backlog
+              metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
+  destination: {server: https://kubernetes.default.svc, namespace: observability}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-5"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki
+    targetRevision: 7.7.0
+    helm:
+      valuesObject:
+        fullnameOverride: loki
+        deploymentMode: SingleBinary
+        loki:
+          auth_enabled: false
+          commonConfig: {replication_factor: 1}
+          storage: {type: filesystem}
+          schemaConfig:
+            configs:
+              - from: "2024-04-01"
+                store: tsdb
+                object_store: filesystem
+                schema: v13
+                index: {prefix: index_, period: 24h}
+          limits_config:
+            retention_period: 72h
+            allow_structured_metadata: true
+            volume_enabled: true
+          compactor:
+            retention_enabled: true
+            delete_request_store: filesystem
+          pattern_ingester: {enabled: false}
+        singleBinary:
+          replicas: 1
+          persistence: {size: 2Gi}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: "1", memory: 384Mi}
+        read: {replicas: 0}
+        write: {replicas: 0}
+        backend: {replicas: 0}
+        gateway: {enabled: false}
+        chunksCache: {enabled: false}
+        resultsCache: {enabled: false}
+        lokiCanary: {enabled: false}
+        test: {enabled: false}
+        minio: {enabled: false}
+  destination: {server: https://kubernetes.default.svc, namespace: observability}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-5"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: tempo
+    targetRevision: 1.24.4
+    helm:
+      valuesObject:
+        fullnameOverride: tempo
+        tempo:
+          retention: 48h
+          resources:
+            requests: {cpu: 20m, memory: 96Mi}
+            limits: {cpu: 500m, memory: 320Mi}
+          receivers:
+            jaeger: null
+            opencensus: null
+            otlp:
+              protocols:
+                grpc: {endpoint: "0.0.0.0:4317"}
+                http: {endpoint: "0.0.0.0:4318"}
+        persistence: {enabled: true, size: 2Gi}
+  destination: {server: https://kubernetes.default.svc, namespace: observability}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-collector
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-4"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    chart: opentelemetry-collector
+    targetRevision: 0.183.2
+    helm:
+      valuesObject:
+        fullnameOverride: otel-collector
+        mode: deployment
+        image:
+          repository: otel/opentelemetry-collector-k8s
+        command:
+          name: otelcol-k8s
+        resources:
+          requests: {cpu: 20m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+        # Services send OTLP/gRPC to otel-collector.observability:4317; the
+        # collector batches spans and forwards them to Tempo.
+        config:
+          processors:
+            memory_limiter:
+              check_interval: 5s
+              limit_percentage: 80
+              spike_limit_percentage: 25
+            batch: {}
+          exporters:
+            otlp/tempo:
+              endpoint: tempo.observability:4317
+              tls: {insecure: true}
+          service:
+            pipelines:
+              traces:
+                receivers: [otlp]
+                processors: [memory_limiter, batch]
+                exporters: [otlp/tempo]
+  destination: {server: https://kubernetes.default.svc, namespace: observability}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-4"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: alloy
+    targetRevision: 1.16.0
+    helm:
+      valuesObject:
+        fullnameOverride: alloy
+        # One collector reading logs through the Kubernetes API (no hostPath
+        # mounts, no per-node DaemonSet: cheaper on a 3-node laptop cluster).
+        controller: {type: deployment, replicas: 1}
+        alloy:
+          resources:
+            requests: {cpu: 20m, memory: 96Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          configMap:
+            content: |
+              // Pod logs of the TaskFlow and platform namespaces -> Loki.
+              discovery.kubernetes "pods" {
+                role = "pod"
+              }
+              discovery.relabel "pods" {
+                targets = discovery.kubernetes.pods.targets
+                rule {
+                  source_labels = ["__meta_kubernetes_namespace"]
+                  regex         = "taskflow-.*|ingress-nginx|argocd|observability|cicd"
+                  action        = "keep"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_namespace"]
+                  target_label  = "namespace"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_name"]
+                  target_label  = "pod"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_container_name"]
+                  target_label  = "container"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+                  target_label  = "app"
+                }
+              }
+              loki.source.kubernetes "pods" {
+                targets    = discovery.relabel.pods.output
+                forward_to = [loki.process.taskflow.receiver]
+              }
+              // TaskFlow services log one JSON object per line: promote the
+              // level to a label and keep trace_id as structured metadata,
+              // so Grafana can jump from a log line to its trace.
+              loki.process "taskflow" {
+                forward_to = [loki.write.default.receiver]
+                stage.json {
+                  expressions = { level = "level", trace_id = "trace_id", service = "service" }
+                }
+                stage.labels {
+                  values = { level = "", service = "" }
+                }
+                stage.structured_metadata {
+                  values = { trace_id = "" }
+                }
+              }
+              loki.write "default" {
+                endpoint {
+                  url = "http://loki.observability:3100/loki/api/v1/push"
+                }
+              }
+  destination: {server: https://kubernetes.default.svc, namespace: observability}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-config
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-3"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  # Dashboards (ConfigMaps) and alert rules (PrometheusRule) from Git.
+  project: platform
+  source:
+    repoURL: https://github.com/tadashi-dev-eng/dso202-project.git
+    targetRevision: main
+    path: deploy/observability
+  destination: {server: https://kubernetes.default.svc, namespace: observability}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}

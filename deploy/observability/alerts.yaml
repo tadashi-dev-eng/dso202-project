@@ -1,0 +1,88 @@
+# deploy/observability/alerts.yaml -- TaskFlow alert rules (Prometheus Operator).
+#
+# Symptom-based alerts on what users feel (errors, latency, availability),
+# plus the few causes that predict an outage (backlog, crash loops, quota,
+# etcd quorum). Each has a "for:" so a single bad scrape never pages.
+# Alertmanager groups them by namespace and alertname.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: taskflow
+  labels:
+    app.kubernetes.io/part-of: taskflow
+spec:
+  groups:
+    - name: taskflow.slo
+      rules:
+        # Recording rules: reused by the alerts and cheaper for dashboards.
+        - record: taskflow:requests:rate1m
+          expr: sum by (namespace, service) (rate(http_server_requests_total[1m]))
+        - record: taskflow:errors5xx:ratio5m
+          expr: |
+            sum by (namespace, service) (rate(http_server_requests_total{status=~"5.."}[5m]))
+              / clamp_min(sum by (namespace, service) (rate(http_server_requests_total[5m])), 0.001)
+        - record: taskflow:latency:p95_5m
+          expr: |
+            histogram_quantile(0.95,
+              sum by (namespace, service, le) (rate(http_server_request_duration_seconds_bucket[5m])))
+
+        - alert: TaskflowHighErrorRate
+          expr: taskflow:errors5xx:ratio5m > 0.05 and taskflow:requests:rate1m > 0.2
+          for: 5m
+          labels: {severity: critical}
+          annotations:
+            summary: "{{ $labels.service }} in {{ $labels.namespace }}: {{ $value | humanizePercentage }} of requests fail"
+            description: More than 5% of requests return 5xx for 5 minutes.
+        - alert: TaskflowHighLatency
+          expr: taskflow:latency:p95_5m > 1
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: "{{ $labels.service }} p95 latency is {{ $value | humanizeDuration }}"
+        - alert: TaskflowServiceDown
+          expr: |
+            sum by (namespace, deployment) (kube_deployment_status_replicas_available{namespace=~"taskflow-.*"})
+              == 0
+            and on (namespace, deployment) kube_deployment_spec_replicas{namespace=~"taskflow-.*"} > 0
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: "{{ $labels.deployment }} in {{ $labels.namespace }} has no available Pods"
+        - alert: TaskflowNotificationBacklog
+          expr: max by (namespace) (taskflow_notification_backlog) > 200
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: "{{ $value }} notifications waiting in {{ $labels.namespace }}"
+            description: The backlog keeps growing although the HPA can add replicas; check the provider latency and the HPA's maxReplicas.
+
+    - name: taskflow.platform
+      rules:
+        - alert: TaskflowPodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total{namespace=~"taskflow-.*"}[15m]) > 3
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "{{ $labels.pod }} restarted {{ $value | humanize }} times in 15 minutes"
+        - alert: TaskflowQuotaNearlyExhausted
+          expr: |
+            kube_resourcequota{namespace=~"taskflow-.*", type="used"}
+              / ignoring(type) kube_resourcequota{namespace=~"taskflow-.*", type="hard"} > 0.9
+          for: 15m
+          labels: {severity: warning}
+          annotations:
+            summary: "{{ $labels.namespace }} uses {{ $value | humanizePercentage }} of its {{ $labels.resource }} quota"
+            description: The autoscalers will soon be unable to add Pods.
+        - alert: TaskflowEtcdQuorumAtRisk
+          expr: sum by (namespace) (etcd_server_has_leader{namespace=~"taskflow-.*"}) < 3
+          for: 2m
+          labels: {severity: warning}
+          annotations:
+            summary: "Only {{ $value }} of 3 registry members in {{ $labels.namespace }} see a leader"
+            description: One more lost member and the registry loses quorum (writes stop; the gateway falls back to DNS).
+        - alert: TaskflowDatabaseDown
+          expr: pg_up{namespace=~"taskflow-.*"} == 0
+          for: 1m
+          labels: {severity: critical}
+          annotations:
+            summary: "PostgreSQL in {{ $labels.namespace }} is down"

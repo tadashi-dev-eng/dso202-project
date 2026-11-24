@@ -25,7 +25,7 @@ metadata:
   labels: {{- include "platform.labels" $c | nindent 4 }}
 spec:
   serviceName: objectstore
-  replicas: 1
+  replicas: {{ if .Values.paused }}0{{ else }}1{{ end }}
   selector:
     matchLabels: {{- include "platform.selector" $c | nindent 6 }}
   persistentVolumeClaimRetentionPolicy:

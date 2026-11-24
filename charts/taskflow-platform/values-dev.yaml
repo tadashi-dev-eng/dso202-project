@@ -1,2 +1,5 @@
 # charts/taskflow-platform/values-dev.yaml -- dev uses the chart defaults.
 environment: dev
+# Parked with the dev services (charts/taskflow/values-dev.yaml): data kept,
+# ~450 MB freed. Set to false together with global.paused there.
+paused: true

@@ -28,7 +28,7 @@ metadata:
   labels: {{- include "platform.labels" $r | nindent 4 }}
 spec:
   serviceName: redis
-  replicas: 1
+  replicas: {{ if .Values.paused }}0{{ else }}1{{ end }}
   selector:
     matchLabels: {{- include "platform.selector" $r | nindent 6 }}
   template:
@@ -91,7 +91,7 @@ metadata:
   labels: {{- include "platform.labels" $n | nindent 4 }}
 spec:
   serviceName: nats
-  replicas: 1
+  replicas: {{ if .Values.paused }}0{{ else }}1{{ end }}
   selector:
     matchLabels: {{- include "platform.selector" $n | nindent 6 }}
   template:

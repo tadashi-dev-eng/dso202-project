@@ -38,7 +38,7 @@ metadata:
   labels: {{- include "platform.labels" $c | nindent 4 }}
 spec:
   serviceName: postgres-hl
-  replicas: 1
+  replicas: {{ if .Values.paused }}0{{ else }}1{{ end }}
   selector:
     matchLabels: {{- include "platform.selector" $c | nindent 6 }}
   # Keep the data if the StatefulSet is deleted or scaled down.
@@ -128,6 +128,7 @@ each role's password from the taskflow-db Secret. Runs after every
 install/upgrade (Helm hook; Argo CD runs it as a PostSync hook), so adding
 a service or rotating a password is a Git change, not a manual psql step.
 */}}
+{{- if not .Values.paused }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -188,3 +189,4 @@ spec:
         - name: passwords
           secret:
             secretName: {{ .Values.secrets.databases }}
+{{- end }}

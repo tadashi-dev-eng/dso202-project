@@ -59,7 +59,7 @@ metadata:
   labels: {{- include "platform.labels" $c | nindent 4 }}
 spec:
   serviceName: etcd-hl
-  replicas: {{ .Values.etcd.replicas }}
+  replicas: {{ if .Values.paused }}0{{ else }}{{ .Values.etcd.replicas }}{{ end }}
   podManagementPolicy: Parallel
   selector:
     matchLabels: {{- include "platform.selector" $c | nindent 6 }}
@@ -129,6 +129,7 @@ spec:
             storage: {{ .Values.etcd.storage }}
 ---
 {{- /* Seed the dynamic configuration keys (config as code). */}}
+{{- if not .Values.paused }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -175,3 +176,4 @@ spec:
           securityContext:
             {{- include "platform.containerSecurity" . | nindent 12 }}
             readOnlyRootFilesystem: true
+{{- end }}

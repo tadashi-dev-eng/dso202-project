@@ -15,7 +15,7 @@
 #   control plane   allocatable ~1.0 GiB  (DaemonSets + ingress controller;
 #                                          the rest is its own API server/etcd)
 #   each worker     allocatable ~2.9 GiB  (all workloads)
-#   eviction        a node evicts Pods when the VM has < 400 MiB free,
+#   eviction        a node evicts Pods when the VM has < 250 MiB free,
 #                   long before the kernel OOM-killer would act
 #
 # With honest capacity, an autoscaler that wants more Pods than fit gets
@@ -39,7 +39,7 @@ cat >> "$f" <<YAML
 systemReserved:
   memory: $1
 evictionHard:
-  memory.available: 400Mi
+  memory.available: 250Mi
   nodefs.available: 5%
   imagefs.available: 5%
 # taskflow-capacity end

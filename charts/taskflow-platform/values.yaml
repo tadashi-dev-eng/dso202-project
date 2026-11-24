@@ -1,5 +1,8 @@
 # charts/taskflow-platform/values.yaml -- defaults (dev-sized).
 environment: dev
+# paused: every StatefulSet runs 0 Pods; PVCs and data are kept. Used to
+# park an environment on the laptop cluster (memory), not as an outage.
+paused: false
 storageClass: standard          # kind's local-path provisioner
 serviceMonitors: true
 networkPolicies: true

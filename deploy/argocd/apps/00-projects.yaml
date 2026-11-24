@@ -17,7 +17,7 @@ spec:
   description: Cluster add-ons shared by every TaskFlow environment
   sourceRepos:
     - https://github.com/tadashi-dev-eng/dso202-project.git
-    - https://bitnami-labs.github.io/sealed-secrets
+    - https://bitnami.github.io/sealed-secrets
     - https://prometheus-community.github.io/helm-charts
     - https://grafana.github.io/helm-charts
     - https://open-telemetry.github.io/opentelemetry-helm-charts

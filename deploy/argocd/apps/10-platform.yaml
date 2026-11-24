@@ -33,7 +33,7 @@ metadata:
 spec:
   project: platform
   source:
-    repoURL: https://bitnami-labs.github.io/sealed-secrets
+    repoURL: https://bitnami.github.io/sealed-secrets
     chart: sealed-secrets
     targetRevision: 2.20.0          # controller 0.40.0
     helm:
@@ -66,10 +66,13 @@ spec:
   destination: {server: https://kubernetes.default.svc, namespace: ingress-nginx}
   syncPolicy:
     automated: {prune: true, selfHeal: true}
+    syncOptions: [RespectIgnoreDifferences=true]
+  # The two admission-certificate Jobs run once; a Job's spec is immutable
+  # and Kubernetes adds its own labels to it, which is not drift.
   ignoreDifferences:
     - group: batch
       kind: Job
-      jqPathExpressions: ['.spec.template.metadata.labels']
+      jsonPointers: [/spec]
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application

@@ -1,0 +1,35 @@
+$ kubectl get events -n taskflow-prod --field-selector reason=SuccessfulRescale
+LAST SEEN   TYPE     REASON              OBJECT                                         MESSAGE
+35m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 4; reason: external metric taskflow_notification_backlog(&LabelSelector{MatchLabels:map[string]string{namespace: taskflow-prod,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+35m         Normal   SuccessfulRescale   horizontalpodautoscaler/api-gateway            New size: 4; reason: cpu resource utilization (percentage of request) above target
+35m         Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 3; reason: pods metric http_requests_per_second above target
+35m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 6; reason: external metric taskflow_notification_backlog(&LabelSelector{MatchLabels:map[string]string{namespace: taskflow-prod,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+35m         Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 4; reason: pods metric http_requests_per_second above target
+34m         Normal   SuccessfulRescale   horizontalpodautoscaler/api-gateway            New size: 6; reason: cpu resource utilization (percentage of request) above target
+34m         Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 5; reason: pods metric http_requests_per_second above target
+34m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 8; reason: external metric taskflow_notification_backlog(&LabelSelector{MatchLabels:map[string]string{namespace: taskflow-prod,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+31m         Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 4; reason: All metrics below target
+28m         Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 3; reason: All metrics below target
+27m         Normal   SuccessfulRescale   horizontalpodautoscaler/api-gateway            New size: 5; reason: All metrics below target
+27m         Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 2; reason: All metrics below target
+26m         Normal   SuccessfulRescale   horizontalpodautoscaler/api-gateway            New size: 4; reason: All metrics below target
+26m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 7; reason: All metrics below target
+25m         Normal   SuccessfulRescale   horizontalpodautoscaler/api-gateway            New size: 3; reason: All metrics below target
+25m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 6; reason: All metrics below target
+24m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 5; reason: All metrics below target
+24m         Normal   SuccessfulRescale   horizontalpodautoscaler/api-gateway            New size: 2; reason: All metrics below target
+23m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 4; reason: All metrics below target
+22m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 3; reason: All metrics below target
+21m         Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 2; reason: All metrics below target
+6m24s       Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 4; reason: external metric taskflow_notification_backlog(&LabelSelector{MatchLabels:map[string]string{namespace: taskflow-prod,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+6m7s        Normal   SuccessfulRescale   horizontalpodautoscaler/api-gateway            New size: 4; reason: cpu resource utilization (percentage of request) above target
+5m52s       Normal   SuccessfulRescale   horizontalpodautoscaler/notification-service   New size: 6; reason: external metric taskflow_notification_backlog(&LabelSelector{MatchLabels:map[string]string{namespace: taskflow-prod,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+5m50s       Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 3; reason: pods metric http_requests_per_second above target
+5m32s       Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 4; reason: pods metric http_requests_per_second above target
+5m1s        Normal   SuccessfulRescale   horizontalpodautoscaler/task-service           New size: 5; reason: pods metric http_requests_per_second above target
+
+$ kubectl get hpa -n taskflow-prod
+NAME                   REFERENCE                         TARGETS            MINPODS   MAXPODS   REPLICAS   AGE
+api-gateway            Deployment/api-gateway            cpu: 17%/70%       2         4         4          3h38m
+notification-service   Deployment/notification-service   812667m/20 (avg)   2         6         6          3h38m
+task-service           Deployment/task-service           2215m/10           2         6         5          3h38m

@@ -22,6 +22,30 @@ patches:
   - path: argocd-cm.yaml
   - path: argocd-cmd-params-cm.yaml
   - path: argocd-rbac-cm.yaml
+  # Upstream Argo CD declares no resources, which makes its Pods
+  # "BestEffort": the first evicted under memory pressure. Requests sized
+  # from measurement (controller ~340 Mi, repo-server/server ~60 Mi) make
+  # them Burstable and count them in the scheduler's capacity arithmetic.
+  - target: {kind: StatefulSet, name: argocd-application-controller}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value: {requests: {cpu: 100m, memory: 320Mi}, limits: {memory: 768Mi}}
+  - target: {kind: Deployment, name: argocd-repo-server}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value: {requests: {cpu: 20m, memory: 96Mi}, limits: {memory: 512Mi}}
+  - target: {kind: Deployment, name: argocd-server}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value: {requests: {cpu: 10m, memory: 48Mi}, limits: {memory: 256Mi}}
+  - target: {kind: Deployment, name: argocd-redis}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value: {requests: {cpu: 10m, memory: 16Mi}, limits: {memory: 128Mi}}
   # Dex (SSO connector) is not used: local accounts + RBAC only. Scaling it
   # to zero saves memory on the laptop cluster.
   - target: {kind: Deployment, name: argocd-dex-server}

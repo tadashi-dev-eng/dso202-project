@@ -1,0 +1,130 @@
+=== 21:25:46
+api-gateway cpu: 5%/70% replicas=2
+notification-service 0/20 (avg) replicas=2
+task-service <unknown>/10 2 replicas=3h31m
+pending=0 vm_available_mb=1721
+=== 21:26:02
+api-gateway cpu: 6%/70% replicas=2
+notification-service 0/20 (avg) replicas=2
+task-service 2261m/10 2 replicas=3h32m
+pending=0 vm_available_mb=1675
+=== 21:26:19
+api-gateway cpu: 51%/70% replicas=2
+notification-service 102500m/20 (avg) replicas=2
+task-service 4820m/10 2 replicas=3h32m
+pending=0 vm_available_mb=1823
+=== 21:26:35
+api-gateway cpu: 240%/70% replicas=2
+notification-service 80500m/20 (avg) replicas=4
+task-service 8903m/10 2 replicas=3h32m
+pending=0 vm_available_mb=1371
+=== 21:26:51
+api-gateway cpu: 256%/70% replicas=4
+notification-service 131500m/20 (avg) replicas=4
+task-service 14226m/10 2 replicas=3h33m
+pending=0 vm_available_mb=1158
+=== 21:27:07
+api-gateway cpu: 226%/70% replicas=4
+notification-service 128834m/20 (avg) replicas=6
+task-service 17383m/10 2 replicas=3h33m
+pending=0 vm_available_mb=1072
+=== 21:27:24
+api-gateway cpu: 139%/70% replicas=4
+notification-service 164834m/20 (avg) replicas=6
+task-service 13964m/10 2 replicas=3h33m
+pending=0 vm_available_mb=1062
+=== 21:27:40
+api-gateway cpu: 139%/70% replicas=4
+notification-service 208/20 (avg) replicas=6
+task-service 11004m/10 2 replicas=3h33m
+pending=0 vm_available_mb=1039
+=== 21:27:56
+api-gateway cpu: 157%/70% replicas=4
+notification-service 242834m/20 (avg) replicas=6
+task-service 11122m/10 2 replicas=3h34m
+pending=0 vm_available_mb=1246
+=== 21:28:12
+api-gateway cpu: 142%/70% replicas=4
+notification-service 294500m/20 (avg) replicas=6
+task-service 10846m/10 2 replicas=3h34m
+pending=0 vm_available_mb=981
+=== 21:28:28
+api-gateway cpu: 150%/70% replicas=4
+notification-service 339/20 (avg) replicas=6
+task-service 9106m/10 2 replicas=3h34m
+pending=0 vm_available_mb=981
+=== 21:28:44
+api-gateway cpu: 157%/70% replicas=4
+notification-service 381167m/20 (avg) replicas=6
+task-service 9485m/10 2 replicas=3h34m
+pending=0 vm_available_mb=982
+=== 21:29:00
+api-gateway cpu: 148%/70% replicas=4
+notification-service 422/20 (avg) replicas=6
+task-service 9867m/10 2 replicas=3h35m
+pending=0 vm_available_mb=957
+=== 21:29:16
+api-gateway cpu: 148%/70% replicas=4
+notification-service 476/20 (avg) replicas=6
+task-service 9432m/10 2 replicas=3h35m
+pending=0 vm_available_mb=951
+=== 21:29:32
+api-gateway cpu: 133%/70% replicas=4
+notification-service 513167m/20 (avg) replicas=6
+task-service 9391m/10 2 replicas=3h35m
+pending=0 vm_available_mb=1148
+=== 21:29:48
+api-gateway cpu: 141%/70% replicas=4
+notification-service 556334m/20 (avg) replicas=6
+task-service 8886m/10 2 replicas=3h35m
+pending=0 vm_available_mb=972
+=== 21:30:04
+api-gateway cpu: 141%/70% replicas=4
+notification-service 592500m/20 (avg) replicas=6
+task-service 9222m/10 2 replicas=3h36m
+pending=0 vm_available_mb=959
+=== 21:30:20
+api-gateway cpu: 136%/70% replicas=4
+notification-service 633/20 (avg) replicas=6
+task-service 9056m/10 2 replicas=3h36m
+pending=0 vm_available_mb=948
+=== 21:30:36
+api-gateway cpu: 140%/70% replicas=4
+notification-service 667500m/20 (avg) replicas=6
+task-service 9358m/10 2 replicas=3h36m
+pending=0 vm_available_mb=952
+=== 21:30:52
+api-gateway cpu: 140%/70% replicas=4
+notification-service 703/20 (avg) replicas=6
+task-service 9145m/10 2 replicas=3h37m
+pending=0 vm_available_mb=933
+=== 21:31:09
+api-gateway cpu: 151%/70% replicas=4
+notification-service 736/20 (avg) replicas=6
+task-service 9267m/10 2 replicas=3h37m
+pending=0 vm_available_mb=1092
+=== 21:31:25
+api-gateway cpu: 134%/70% replicas=4
+notification-service 771167m/20 (avg) replicas=6
+task-service 8936m/10 2 replicas=3h37m
+pending=0 vm_available_mb=942
+=== 21:31:41
+api-gateway cpu: 131%/70% replicas=4
+notification-service 815500m/20 (avg) replicas=6
+task-service 9225m/10 2 replicas=3h37m
+pending=0 vm_available_mb=959
+=== 21:31:57
+api-gateway cpu: 147%/70% replicas=4
+notification-service 836/20 (avg) replicas=6
+task-service 8277m/10 2 replicas=3h38m
+pending=0 vm_available_mb=951
+=== 21:32:13
+api-gateway cpu: 136%/70% replicas=4
+notification-service 835834m/20 (avg) replicas=6
+task-service 8277m/10 2 replicas=3h38m
+pending=0 vm_available_mb=961
+=== 21:32:28
+api-gateway cpu: 17%/70% replicas=4
+notification-service 812667m/20 (avg) replicas=6
+task-service 5416m/10 2 replicas=3h38m
+pending=0 vm_available_mb=869

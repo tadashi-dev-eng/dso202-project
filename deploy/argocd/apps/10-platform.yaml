@@ -64,15 +64,10 @@ spec:
     targetRevision: main
     path: platform/ingress-nginx
   destination: {server: https://kubernetes.default.svc, namespace: ingress-nginx}
+  # platform/ingress-nginx/kustomization.yaml turns the admission Jobs into
+  # Sync hooks and the Service into NodePort (see the comments there).
   syncPolicy:
     automated: {prune: true, selfHeal: true}
-    syncOptions: [RespectIgnoreDifferences=true]
-  # The two admission-certificate Jobs run once; a Job's spec is immutable
-  # and Kubernetes adds its own labels to it, which is not drift.
-  ignoreDifferences:
-    - group: batch
-      kind: Job
-      jsonPointers: [/spec]
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application

@@ -1,0 +1,28 @@
+# platform/ingress-nginx/kustomization.yaml -- TaskFlow (DSO202 final project)
+# The upstream kind manifest (vendored unmodified, images pinned by digest)
+# plus two GitOps adjustments:
+#   1. The controller Service becomes NodePort. On kind no load balancer
+#      exists, so a LoadBalancer Service stays <pending> and Argo CD would
+#      report the application as Progressing forever. Traffic reaches the
+#      controller through hostPort 80/443 on the ingress-ready node anyway.
+#   2. The two admission-certificate Jobs run as Argo CD Sync hooks (re-run
+#      on each sync, replaced before re-creation) instead of being tracked
+#      as live resources: a Job's spec is immutable, so a tracked Job would
+#      show permanent drift.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ingress-nginx-kind-v1.15.1.yaml
+patches:
+  - target: {kind: Service, name: ingress-nginx-controller}
+    patch: |-
+      - op: replace
+        path: /spec/type
+        value: NodePort
+  - target: {kind: Job, name: ingress-nginx-admission-.*}
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/hook: Sync
+          argocd.argoproj.io/hook-delete-policy: BeforeHookCreation

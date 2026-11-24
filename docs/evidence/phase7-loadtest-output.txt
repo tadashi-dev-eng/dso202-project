@@ -1,0 +1,35 @@
+8 users on list b7399b7a-9371-40ee-8c15-6a64693db09a; running 360s ...
+  t+  15s  requests=811  rate=54.0/s  errors=0
+  t+  30s  requests=1544  rate=51.4/s  errors=0
+  t+  45s  requests=2189  rate=48.6/s  errors=0
+  t+  60s  requests=2890  rate=48.2/s  errors=0
+  t+  75s  requests=3471  rate=46.3/s  errors=0
+  t+  90s  requests=4010  rate=44.5/s  errors=0
+  t+ 105s  requests=4446  rate=42.3/s  errors=0
+  t+ 120s  requests=4779  rate=39.8/s  errors=0
+  t+ 135s  requests=4871  rate=36.1/s  errors=0
+  t+ 150s  requests=4988  rate=33.2/s  errors=0
+  t+ 165s  requests=5068  rate=30.7/s  errors=0
+  t+ 180s  requests=5249  rate=29.2/s  errors=0
+  t+ 195s  requests=5381  rate=27.6/s  errors=0
+  t+ 210s  requests=5615  rate=26.7/s  errors=0
+  t+ 225s  requests=5857  rate=26.0/s  errors=1
+  t+ 240s  requests=5980  rate=24.9/s  errors=1
+  t+ 255s  requests=6093  rate=23.9/s  errors=1
+  t+ 270s  requests=6188  rate=22.9/s  errors=1
+  t+ 285s  requests=6333  rate=22.2/s  errors=1
+  t+ 300s  requests=6520  rate=21.7/s  errors=17
+  t+ 315s  requests=6807  rate=21.6/s  errors=198
+  t+ 330s  requests=7180  rate=21.8/s  errors=512
+  t+ 345s  requests=7394  rate=21.4/s  errors=518
+  t+ 360s  requests=7622  rate=21.2/s  errors=518
+  t+ 375s  requests=7629  rate=20.3/s  errors=518
+
+operation        count   p50 ms   p95 ms   p99 ms
+comment           1538      125     1219     2983
+create task       1167       82     1245     2383
+list tasks        4107       99      954     2258
+update task        817       89     1067     2811
+
+total 7629 requests, 20.3 req/s, errors 518 (6.79%) {'create task 500': 2, 'list tasks 502': 13, 'list tasks 503': 308, 'comment 500': 40, 'create task 503': 82, 'update task 503': 67, 'list tasks 500': 1, 'create task 502': 2, 'update task 502': 3}
+written loadtest\results\20261125-030251-9841e9.json

@@ -44,13 +44,16 @@ podLabels: {}
 probes:
   livenessPath: /healthz
   readinessPath: /readyz
+# Measured: a Python service uses ~60 Mi at rest and under the load test
+# (docs/capacity-plan.md). Requests sit just above that so the scheduler's
+# arithmetic matches reality; the limit leaves room for bursts.
 resources:
   requests:
     cpu: 20m
-    memory: 96Mi
+    memory: 72Mi
   limits:
     cpu: 500m
-    memory: 256Mi
+    memory: 192Mi
 autoscaling:
   enabled: false
   minReplicas: 2

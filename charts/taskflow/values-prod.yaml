@@ -3,9 +3,11 @@
 # High availability: every service runs at least two replicas spread over
 # the two worker zones, with a PodDisruptionBudget so a node drain always
 # leaves one serving. Three services autoscale:
-#   api-gateway          CPU utilisation            2..6
-#   task-service         requests/second per pod    2..8   (custom metric)
-#   notification-service JetStream backlog          2..8   (external metric)
+#   api-gateway          CPU utilisation            2..4
+#   task-service         requests/second per pod    2..6   (custom metric)
+#   notification-service JetStream backlog          2..6   (external metric)
+# The maxima are what the cluster's real capacity can hold at once
+# (docs/capacity-plan.md); beyond them, load is shed by the rate limits.
 # Sizing rationale: docs/capacity-plan.md.
 global:
   environment: prod
@@ -23,12 +25,12 @@ web-frontend: *ha
 api-gateway:
   <<: *ha
   resources:
-    requests: {cpu: 100m, memory: 112Mi}
-    limits: {cpu: "1", memory: 256Mi}
+    requests: {cpu: 100m, memory: 80Mi}
+    limits: {cpu: "1", memory: 192Mi}
   autoscaling:
     enabled: true
     minReplicas: 2
-    maxReplicas: 6
+    maxReplicas: 4
     cpu: 70
 auth-service: *ha
 user-service: *ha
@@ -36,12 +38,12 @@ list-service: *ha
 task-service:
   <<: *ha
   resources:
-    requests: {cpu: 50m, memory: 96Mi}
-    limits: {cpu: 500m, memory: 256Mi}
+    requests: {cpu: 50m, memory: 72Mi}
+    limits: {cpu: 500m, memory: 192Mi}
   autoscaling:
     enabled: true
     minReplicas: 2
-    maxReplicas: 8
+    maxReplicas: 6
     # Prometheus Adapter: rate(http_server_requests_total[1m]) per Pod
     podsMetric:
       name: http_requests_per_second
@@ -56,7 +58,7 @@ notification-service:
   autoscaling:
     enabled: true
     minReplicas: 2
-    maxReplicas: 8
+    maxReplicas: 6
     # Prometheus Adapter: max(taskflow_notification_backlog) in this namespace
     externalMetric:
       name: taskflow_notification_backlog

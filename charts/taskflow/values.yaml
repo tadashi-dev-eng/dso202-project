@@ -41,8 +41,8 @@ api-gateway:
   enabled: true
   replicaCount: 1
   resources:
-    requests: {cpu: 50m, memory: 112Mi}
-    limits: {cpu: "1", memory: 256Mi}
+    requests: {cpu: 50m, memory: 80Mi}
+    limits: {cpu: "1", memory: 192Mi}
 auth-service:
   enabled: true
 user-service:

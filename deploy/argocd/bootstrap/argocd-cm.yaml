@@ -1,0 +1,21 @@
+# argocd-cm: server URL, local accounts, health and diff settings.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  url: https://argocd.taskflow.localhost
+  # Local accounts (no SSO): "developer" may log in to the UI and CLI;
+  # "jenkins" has an API key only (used by the pipeline to wait for a sync).
+  # What each may do is defined in argocd-rbac-cm and the AppProjects.
+  accounts.developer: login
+  accounts.jenkins: apiKey
+  # Poll Git every 60 s instead of the default 180 s (no webhook reaches a
+  # laptop cluster from GitHub).
+  timeout.reconciliation: 60s
+  # The ingress-nginx admission webhook's CA bundle is written at runtime by
+  # its certgen Job; it is not drift. (Deployments scaled by an HPA leave
+  # spec.replicas out of the chart, so the HPA owns that field alone.)
+  resource.customizations.ignoreDifferences.admissionregistration.k8s.io_ValidatingWebhookConfiguration: |
+    jqPathExpressions:
+      - '.webhooks[]?.clientConfig.caBundle'

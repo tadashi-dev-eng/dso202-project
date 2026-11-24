@@ -1,0 +1,89 @@
+# deploy/argocd/apps/30-environments.yaml -- the TaskFlow environments.
+#
+# Two ApplicationSets generate three Applications per environment:
+#
+#   <env>-environment  Kustomize  deploy/environments/overlays/<env>
+#                      Namespace, quota, RBAC, SealedSecrets
+#   <env>-platform     Helm       charts/taskflow-platform (+ values-<env>.yaml)
+#                      PostgreSQL, Redis, NATS, etcd, object store
+#   <env>-taskflow     Helm       charts/taskflow (+ values-<env>.yaml)
+#                      the 15 microservices
+#
+# Adding an environment is one more element in each list generator.
+# Every Application syncs automatically, prunes what Git no longer
+# declares and reverts manual drift (selfHeal). A rollback is a `git
+# revert` of the change, which Argo CD then syncs like any other commit.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: taskflow-environments
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - {env: dev}
+          - {env: prod}
+  template:
+    metadata:
+      name: "{{.env}}-environment"
+      labels: {taskflow.io/environment: "{{.env}}", taskflow.io/layer: environment}
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: taskflow
+      source:
+        repoURL: https://github.com/tadashi-dev-eng/dso202-project.git
+        targetRevision: main
+        path: "deploy/environments/overlays/{{.env}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "taskflow-{{.env}}"
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}
+        retry:
+          limit: 10
+          backoff: {duration: 10s, factor: 2, maxDuration: 3m}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: taskflow-charts
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - {env: dev}
+                - {env: prod}
+          - list:
+              elements:
+                - {component: platform, chart: taskflow-platform}
+                - {component: taskflow, chart: taskflow}
+  template:
+    metadata:
+      name: "{{.env}}-{{.component}}"
+      labels: {taskflow.io/environment: "{{.env}}", taskflow.io/layer: "{{.component}}"}
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: taskflow
+      source:
+        repoURL: https://github.com/tadashi-dev-eng/dso202-project.git
+        targetRevision: main
+        path: "charts/{{.chart}}"
+        helm:
+          releaseName: "{{.component}}"
+          valueFiles: ["values-{{.env}}.yaml"]
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "taskflow-{{.env}}"
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}
+        retry:
+          limit: 10
+          backoff: {duration: 15s, factor: 2, maxDuration: 3m}

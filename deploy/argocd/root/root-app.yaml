@@ -1,0 +1,26 @@
+# deploy/argocd/root/root-app.yaml -- TaskFlow (DSO202 final project)
+#
+# App of apps. This Application's only content is deploy/argocd/apps/,
+# which declares every other Application, ApplicationSet and AppProject.
+# Applied once by hand after the Argo CD bootstrap; from then on, adding a
+# component to the cluster is a commit under deploy/argocd/apps/.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/tadashi-dev-eng/dso202-project.git
+    targetRevision: main
+    path: deploy/argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

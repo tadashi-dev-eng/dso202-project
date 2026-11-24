@@ -1,0 +1,26 @@
+# argocd-rbac-cm: who may do what in Argo CD (Unit IV 4.4.2).
+#
+#   admin      built-in, full access (bootstrap and break-glass only)
+#   developer  sees everything; may sync and roll back the dev
+#              environment's applications; read-only on prod
+#   jenkins    may only read applications and trigger a sync (the pipeline
+#              waits for its own change to roll out)
+#   default    everyone else: read-only
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    p, role:developer, applications, get, */*, allow
+    p, role:developer, applications, sync, taskflow/*-dev, allow
+    p, role:developer, applications, action/*, taskflow/*-dev, allow
+    p, role:developer, logs, get, taskflow/*, allow
+    p, role:developer, projects, get, *, allow
+    g, developer, role:developer
+
+    p, role:ci, applications, get, taskflow/*, allow
+    p, role:ci, applications, sync, taskflow/*, allow
+    g, jenkins, role:ci
+  scopes: "[groups]"

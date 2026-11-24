@@ -1,0 +1,2 @@
+# charts/taskflow-platform/values-dev.yaml -- dev uses the chart defaults.
+environment: dev

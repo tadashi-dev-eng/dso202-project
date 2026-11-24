@@ -1,0 +1,8 @@
+# TLS is terminated by the NGINX Ingress (argocd.taskflow.localhost), so the
+# API server itself serves plain HTTP inside the cluster.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  server.insecure: "true"

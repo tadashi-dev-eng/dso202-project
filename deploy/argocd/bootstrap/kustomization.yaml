@@ -1,0 +1,31 @@
+# deploy/argocd/bootstrap/kustomization.yaml -- TaskFlow (DSO202 final project)
+#
+# The one thing applied by hand: Argo CD itself.
+#
+#   kubectl apply -k deploy/argocd/bootstrap --server-side --force-conflicts
+#   kubectl apply -f deploy/argocd/root/root-app.yaml
+#
+# After that, everything (including later changes to Argo CD's own
+# settings, via the argocd-config Application) arrives from Git.
+#
+# The upstream manifest is pinned to an immutable release tag: "stable"
+# would mean something different next week, which breaks the "versioned
+# and immutable" GitOps principle. An upgrade is a reviewed one-line change.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+resources:
+  - namespace.yaml
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.6.1/manifests/install.yaml
+  - ingress.yaml
+patches:
+  - path: argocd-cm.yaml
+  - path: argocd-cmd-params-cm.yaml
+  - path: argocd-rbac-cm.yaml
+  # Dex (SSO connector) is not used: local accounts + RBAC only. Scaling it
+  # to zero saves memory on the laptop cluster.
+  - target: {kind: Deployment, name: argocd-dex-server}
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0

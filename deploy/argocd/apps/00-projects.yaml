@@ -1,0 +1,62 @@
+# deploy/argocd/apps/00-projects.yaml -- AppProjects (Unit IV 4.4.1).
+#
+# platform -- cluster add-ons (ingress, sealed secrets, observability, CI).
+#             May create cluster-scoped objects (CRDs, ClusterRoles).
+# taskflow -- the application environments. Only this repository as a
+#             source, only the taskflow-dev / taskflow-prod namespaces as
+#             destinations, and no cluster-scoped kinds except Namespace:
+#             an environment can never grant itself cluster-wide rights.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  description: Cluster add-ons shared by every TaskFlow environment
+  sourceRepos:
+    - https://github.com/tadashi-dev-eng/dso202-project.git
+    - https://bitnami-labs.github.io/sealed-secrets
+    - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+    - https://open-telemetry.github.io/opentelemetry-helm-charts
+    - https://kubernetes-sigs.github.io/metrics-server
+    - https://charts.jenkins.io
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: argocd}
+    - {server: https://kubernetes.default.svc, namespace: ingress-nginx}
+    - {server: https://kubernetes.default.svc, namespace: sealed-secrets}
+    - {server: https://kubernetes.default.svc, namespace: observability}
+    - {server: https://kubernetes.default.svc, namespace: cicd}
+    - {server: https://kubernetes.default.svc, namespace: kube-system}
+  clusterResourceWhitelist:
+    - {group: "*", kind: "*"}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: taskflow
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  description: TaskFlow application environments (dev, prod)
+  sourceRepos:
+    - https://github.com/tadashi-dev-eng/dso202-project.git
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: taskflow-dev}
+    - {server: https://kubernetes.default.svc, namespace: taskflow-prod}
+  clusterResourceWhitelist:
+    - {group: "", kind: Namespace}
+  # Report anything in the environment namespaces that Git does not declare.
+  orphanedResources:
+    warn: true
+    ignore:
+      - {kind: Secret, name: "sh.helm.release.*"}
+  roles:
+    - name: ci
+      description: Used by Jenkins to read status and trigger a sync
+      policies:
+        - p, proj:taskflow:ci, applications, get, taskflow/*, allow
+        - p, proj:taskflow:ci, applications, sync, taskflow/*, allow

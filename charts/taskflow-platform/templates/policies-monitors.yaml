@@ -1,0 +1,81 @@
+{{- /*
+charts/taskflow-platform/templates/policies-monitors.yaml
+
+NetworkPolicy for the infrastructure Pods (the namespace is default-deny):
+  ingress: only from TaskFlow Pods in this namespace (each service's own
+           egress policy narrows that further to what it uses) and from
+           Prometheus in the observability namespace;
+  egress:  DNS, and each other inside the namespace (etcd peers, the
+           provisioning Jobs reaching postgres/etcd).
+ServiceMonitors: postgres-exporter and etcd metrics.
+*/ -}}
+{{- if .Values.networkPolicies }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: platform
+  labels:
+    app.kubernetes.io/part-of: taskflow
+    app.kubernetes.io/component: infrastructure
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [postgres, redis, nats, etcd, objectstore, db-provision, etcd-seed]
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: taskflow
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.observabilityNamespace }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: taskflow
+{{- end }}
+{{- if .Values.serviceMonitors }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/part-of: taskflow
+    release: observability
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  endpoints:
+    - {port: metrics, interval: 30s}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: etcd
+  labels:
+    app.kubernetes.io/part-of: taskflow
+    release: observability
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: etcd
+  endpoints:
+    - {port: metrics, interval: 30s}
+{{- end }}

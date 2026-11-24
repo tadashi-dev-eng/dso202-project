@@ -1,0 +1,9 @@
+# charts/taskflow/values-dev.yaml -- the dev environment (namespace taskflow-dev).
+# Smallest footprint: one replica per service, no autoscaling, no PDBs
+# (a PDB on a single replica would block every node drain).
+global:
+  environment: dev
+  config:
+    LOG_LEVEL: DEBUG
+ingress:
+  host: dev.taskflow.localhost

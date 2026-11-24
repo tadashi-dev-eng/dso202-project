@@ -1,0 +1,11 @@
+# charts/taskflow-lib/Chart.yaml -- TaskFlow (DSO202 final project)
+# Library chart: renders nothing on its own. Every service chart includes
+# "taskflow-lib.service", which produces the service's complete set of
+# objects from a short values file:
+#   ServiceAccount, Deployment, Service, HorizontalPodAutoscaler,
+#   PodDisruptionBudget, ServiceMonitor, NetworkPolicy
+apiVersion: v2
+name: taskflow-lib
+description: Shared templates for every TaskFlow microservice
+type: library
+version: 0.1.0

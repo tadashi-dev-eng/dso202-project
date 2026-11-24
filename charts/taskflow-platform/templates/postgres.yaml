@@ -1,0 +1,190 @@
+{{- /*
+charts/taskflow-platform/templates/postgres.yaml
+
+PostgreSQL as a one-replica StatefulSet. The data directory lives on a
+PersistentVolumeClaim from volumeClaimTemplates (data-postgres-0), so a
+deleted or rescheduled Pod comes back with the same data. A
+postgres-exporter sidecar exposes database metrics on :9187 for the
+infrastructure dashboard. Each service connects with its own role to its
+own database (created by the db-provision Job).
+*/ -}}
+{{- $c := dict "name" "postgres" "root" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  selector: {{- include "platform.selector" $c | nindent 4 }}
+  ports:
+    - {name: postgres, port: 5432, targetPort: postgres}
+    - {name: metrics, port: 9187, targetPort: metrics}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-hl
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  clusterIP: None
+  selector: {{- include "platform.selector" $c | nindent 4 }}
+  ports:
+    - {name: postgres, port: 5432}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  serviceName: postgres-hl
+  replicas: 1
+  selector:
+    matchLabels: {{- include "platform.selector" $c | nindent 6 }}
+  # Keep the data if the StatefulSet is deleted or scaled down.
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  template:
+    metadata:
+      labels: {{- include "platform.labels" $c | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70          # the "postgres" user of the alpine image
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile: {type: RuntimeDefault}
+      nodeSelector:
+        taskflow.io/node-role: worker
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          args:
+            - -c
+            - max_connections={{ .Values.postgres.maxConnections }}
+            - -c
+            - shared_buffers=64MB
+            - -c
+            - log_min_duration_statement=500   # log slow queries (> 500 ms)
+          ports:
+            - {name: postgres, containerPort: 5432}
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.secrets.postgresAdmin }}, key: password}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec: {command: [pg_isready, -U, postgres, -h, 127.0.0.1]}
+            periodSeconds: 5
+          livenessProbe:
+            exec: {command: [pg_isready, -U, postgres, -h, 127.0.0.1]}
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources: {{- toYaml .Values.postgres.resources | nindent 12 }}
+          securityContext: {{- include "platform.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: run, mountPath: /var/run/postgresql}
+        - name: exporter
+          image: {{ .Values.postgres.exporterImage }}
+          ports:
+            - {name: metrics, containerPort: 9187}
+          env:
+            - name: DATA_SOURCE_URI
+              value: 127.0.0.1:5432/postgres?sslmode=disable
+            - name: DATA_SOURCE_USER
+              value: postgres
+            - name: DATA_SOURCE_PASS
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.secrets.postgresAdmin }}, key: password}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          securityContext:
+            {{- include "platform.containerSecurity" . | nindent 12 }}
+            runAsUser: 65534
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: run
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels: {{- include "platform.selector" $c | nindent 10 }}
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}
+---
+{{- /*
+db-provision: idempotently create one role + database per service and set
+each role's password from the taskflow-db Secret. Runs after every
+install/upgrade (Helm hook; Argo CD runs it as a PostSync hook), so adding
+a service or rotating a password is a Git change, not a manual psql step.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-provision
+  labels: {{- include "platform.labels" (dict "name" "db-provision" "root" .) | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: {{- include "platform.labels" (dict "name" "db-provision" "root" .) | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: provision
+          image: {{ .Values.postgres.image }}
+          env:
+            - name: PGHOST
+              value: postgres
+            - name: PGUSER
+              value: postgres
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.secrets.postgresAdmin }}, key: password}
+          command: [sh, -ec]
+          args:
+            - |
+              until pg_isready -q; do echo "waiting for postgres"; sleep 2; done
+              for db in {{ join " " .Values.databases }}; do
+                pw=$(cat "/db/$db")
+                psql -v ON_ERROR_STOP=1 -q -v db="$db" -v pw="$pw" <<'SQL'
+              SELECT format('CREATE ROLE %I LOGIN', :'db')
+               WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db') \gexec
+              SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'db', :'pw') \gexec
+              SELECT format('CREATE DATABASE %I OWNER %I', :'db', :'db')
+               WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') \gexec
+              SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'db') \gexec
+              SQL
+                echo "database $db ready"
+              done
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          securityContext:
+            {{- include "platform.containerSecurity" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - {name: passwords, mountPath: /db, readOnly: true}
+      volumes:
+        - name: passwords
+          secret:
+            secretName: {{ .Values.secrets.databases }}

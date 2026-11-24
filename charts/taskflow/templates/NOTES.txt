@@ -1,0 +1,6 @@
+TaskFlow {{ .Chart.AppVersion }} -- environment "{{ .Values.global.environment }}" in namespace {{ .Release.Namespace }}
+
+Open:   https://{{ .Values.ingress.host }}/
+API:    https://{{ .Values.ingress.host }}/api
+Check:  kubectl -n {{ .Release.Namespace }} get deploy,hpa,pdb
+Test:   python scripts/smoke_test.py --base https://{{ .Values.ingress.host }} --insecure

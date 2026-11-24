@@ -1,0 +1,17 @@
+# charts/taskflow/charts/web-frontend/values.yaml -- TaskFlow
+# What web-frontend is and what it may talk to. Environment-level settings
+# (replicas, autoscaling, PDBs) are set by the umbrella chart's values.
+tier: presentation
+port: 8080
+servicePort: 80
+securityContext:
+  runAsUser: 101
+probes:
+  livenessPath: /healthz
+  readinessPath: /healthz
+serviceMonitor:
+  disabled: true   # nginx has no Prometheus endpoint
+networkPolicy:
+  fromIngressController: true
+  from: []
+  to: []

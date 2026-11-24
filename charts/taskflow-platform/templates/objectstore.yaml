@@ -1,0 +1,89 @@
+{{- /*
+charts/taskflow-platform/templates/objectstore.yaml -- attachment storage.
+
+SeaweedFS running master + volume + filer + S3 gateway in one Pod, data on
+a PVC. It speaks the S3 API on :8333, so attachment-service uses a standard
+S3 client. (The proposal named MinIO; MinIO stopped publishing container
+images in 2025, so an S3-compatible, Apache-2.0 alternative is used.)
+Credentials come from the taskflow-objectstore Secret (s3.json).
+*/ -}}
+{{- $c := dict "name" "objectstore" "root" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: objectstore
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  selector: {{- include "platform.selector" $c | nindent 4 }}
+  ports:
+    - {name: s3, port: 8333, targetPort: s3}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: objectstore
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  serviceName: objectstore
+  replicas: 1
+  selector:
+    matchLabels: {{- include "platform.selector" $c | nindent 6 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  template:
+    metadata:
+      labels: {{- include "platform.labels" $c | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      nodeSelector:
+        taskflow.io/node-role: worker
+      containers:
+        - name: seaweedfs
+          image: {{ .Values.objectstore.image }}
+          # -ip=127.0.0.1: master, volume, filer and S3 talk to each other inside
+          # the Pod; a fixed address keeps the Raft state valid across restarts
+          # (the Pod IP changes every time). -ip.bind exposes S3 to the Service.
+          args: ["server", "-dir=/data", "-ip=127.0.0.1", "-ip.bind=0.0.0.0",
+                 "-s3", "-s3.port=8333",
+                 "-s3.config=/etc/seaweedfs/s3.json",
+                 "-master.volumeSizeLimitMB=64", "-volume.max=20"]
+          ports:
+            - {name: s3, containerPort: 8333}
+          startupProbe:          # Raft election + filer start can take a minute
+            tcpSocket: {port: s3}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket: {port: s3}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: s3}
+            periodSeconds: 15
+          resources: {{- toYaml .Values.objectstore.resources | nindent 12 }}
+          securityContext: {{- include "platform.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - name: config
+              mountPath: /etc/seaweedfs/s3.json
+              subPath: s3.json
+              readOnly: true
+      volumes:
+        - name: config
+          secret:
+            secretName: {{ .Values.secrets.objectStore }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.objectstore.storage }}

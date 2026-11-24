@@ -1,0 +1,15 @@
+# charts/taskflow/charts/user-service/values.yaml -- TaskFlow
+# What user-service is and what it may talk to. Environment-level settings
+# (replicas, autoscaling, PDBs) are set by the umbrella chart's values.
+database:
+  enabled: true
+  name: users   # own database and role on the shared PostgreSQL
+networkPolicy:
+  from:
+    - api-gateway
+    - auth-service
+    - list-service
+    - comment-service
+    - notification-service
+    - audit-service
+  to: []

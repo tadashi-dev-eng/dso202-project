@@ -1,0 +1,7 @@
+# charts/taskflow/charts/recurrence-service/Chart.yaml -- TaskFlow
+apiVersion: v2
+name: recurrence-service
+description: "Generates recurring tasks (daily, weekly, monthly)"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

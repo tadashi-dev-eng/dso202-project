@@ -1,0 +1,2 @@
+{{- /* Every object for attachment-service comes from the shared library chart. */}}
+{{ include "taskflow-lib.render" . }}

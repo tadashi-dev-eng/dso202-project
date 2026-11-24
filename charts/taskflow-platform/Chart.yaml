@@ -1,0 +1,16 @@
+# charts/taskflow-platform/Chart.yaml -- TaskFlow (DSO202 final project)
+# The stateful infrastructure of one environment, kept apart from the
+# application chart so services can be upgraded or rolled back without
+# touching data:
+#   postgres     StatefulSet + PVC; one database and role per service
+#   redis        StatefulSet + PVC (append-only file)
+#   nats         StatefulSet + PVC (JetStream file storage)
+#   etcd         3-member StatefulSet (Raft quorum) -- service registry
+#                and dynamic configuration
+#   objectstore  SeaweedFS S3 gateway + PVC -- attachment files
+apiVersion: v2
+name: taskflow-platform
+description: Stateful infrastructure for one TaskFlow environment
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

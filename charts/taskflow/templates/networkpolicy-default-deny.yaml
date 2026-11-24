@@ -1,0 +1,20 @@
+{{- /*
+charts/taskflow/templates/networkpolicy-default-deny.yaml
+
+Default deny for the whole namespace: a Pod that no other policy selects
+can neither receive nor send any traffic. Each service's own policy
+(taskflow-lib "networkpolicy") then opens exactly the paths it needs, and
+the platform chart does the same for the infrastructure. A Pod with no
+explicit allow is therefore isolated by default, not open by default.
+*/ -}}
+{{- if .Values.global.networkPolicies }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  labels:
+    app.kubernetes.io/part-of: taskflow
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+{{- end }}

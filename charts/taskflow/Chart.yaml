@@ -1,0 +1,33 @@
+# charts/taskflow/Chart.yaml -- TaskFlow (DSO202 final project)
+# Umbrella chart: one release installs the 15 microservices of one
+# environment. The service charts and the taskflow-lib library chart are
+# kept unpacked under charts/, so no `helm dependency build` is needed
+# (Argo CD renders the chart straight from Git). Each service can be
+# switched off with <service>.enabled=false.
+#
+# Shared infrastructure (PostgreSQL, Redis, NATS, etcd, object store) is a
+# separate chart, charts/taskflow-platform, so the application can be
+# upgraded and rolled back without touching stateful components.
+apiVersion: v2
+name: taskflow
+description: TaskFlow -- a 15-microservice todo platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - {name: taskflow-lib, version: 0.1.0}
+  - {name: web-frontend, version: 0.1.0, condition: web-frontend.enabled}
+  - {name: api-gateway, version: 0.1.0, condition: api-gateway.enabled}
+  - {name: auth-service, version: 0.1.0, condition: auth-service.enabled}
+  - {name: user-service, version: 0.1.0, condition: user-service.enabled}
+  - {name: list-service, version: 0.1.0, condition: list-service.enabled}
+  - {name: task-service, version: 0.1.0, condition: task-service.enabled}
+  - {name: tag-service, version: 0.1.0, condition: tag-service.enabled}
+  - {name: comment-service, version: 0.1.0, condition: comment-service.enabled}
+  - {name: attachment-service, version: 0.1.0, condition: attachment-service.enabled}
+  - {name: reminder-service, version: 0.1.0, condition: reminder-service.enabled}
+  - {name: recurrence-service, version: 0.1.0, condition: recurrence-service.enabled}
+  - {name: notification-service, version: 0.1.0, condition: notification-service.enabled}
+  - {name: search-service, version: 0.1.0, condition: search-service.enabled}
+  - {name: analytics-service, version: 0.1.0, condition: analytics-service.enabled}
+  - {name: audit-service, version: 0.1.0, condition: audit-service.enabled}

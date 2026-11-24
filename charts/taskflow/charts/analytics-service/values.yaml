@@ -1,0 +1,9 @@
+# charts/taskflow/charts/analytics-service/values.yaml -- TaskFlow
+# What analytics-service is and what it may talk to. Environment-level settings
+# (replicas, autoscaling, PDBs) are set by the umbrella chart's values.
+nats: true         # publishes/consumes events on NATS JetStream
+redis: true
+networkPolicy:
+  from:
+    - api-gateway
+  to: []

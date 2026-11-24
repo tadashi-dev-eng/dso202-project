@@ -1,0 +1,22 @@
+# charts/taskflow/charts/api-gateway/values.yaml -- TaskFlow
+# What api-gateway is and what it may talk to. Environment-level settings
+# (replicas, autoscaling, PDBs) are set by the umbrella chart's values.
+jwt: true          # JWT_SECRET from the taskflow-jwt Secret
+redis: true
+networkPolicy:
+  fromIngressController: true
+  from: []
+  to:
+    - auth-service
+    - user-service
+    - list-service
+    - task-service
+    - tag-service
+    - comment-service
+    - attachment-service
+    - reminder-service
+    - recurrence-service
+    - notification-service
+    - search-service
+    - analytics-service
+    - audit-service

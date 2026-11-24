@@ -1,0 +1,177 @@
+{{- /*
+charts/taskflow-platform/templates/etcd.yaml -- the service registry.
+
+A three-member etcd cluster (Raft): writes need a quorum of two, so the
+registry keeps working when any one member is lost. Members find each
+other through the headless Service etcd-hl (stable DNS names
+etcd-0.etcd-hl..., published before they are Ready so the cluster can
+bootstrap). podManagementPolicy Parallel starts all three at once; with
+OrderedReady, etcd-0 would wait for a quorum that cannot form.
+
+Clients (every service) use the ClusterIP Service "etcd" on :2379.
+Metrics and /health are served on :2381.
+*/ -}}
+{{- $c := dict "name" "etcd" "root" . }}
+{{- $ns := .Release.Namespace }}
+{{- $peers := list }}
+{{- range $i := until (int .Values.etcd.replicas) }}
+{{- $peers = append $peers (printf "etcd-%d=http://etcd-%d.etcd-hl.%s.svc:2380" $i $i $ns) }}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  selector: {{- include "platform.selector" $c | nindent 4 }}
+  ports:
+    - {name: client, port: 2379, targetPort: client}
+    - {name: metrics, port: 2381, targetPort: metrics}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd-hl
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector: {{- include "platform.selector" $c | nindent 4 }}
+  ports:
+    - {name: client, port: 2379}
+    - {name: peer, port: 2380}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: etcd
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  # Never voluntarily evict below quorum (2 of 3).
+  minAvailable: {{ add (div (int .Values.etcd.replicas) 2) 1 }}
+  selector:
+    matchLabels: {{- include "platform.selector" $c | nindent 6 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: etcd
+  labels: {{- include "platform.labels" $c | nindent 4 }}
+spec:
+  serviceName: etcd-hl
+  replicas: {{ .Values.etcd.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels: {{- include "platform.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "platform.labels" $c | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {{- include "platform.selector" $c | nindent 14 }}
+      containers:
+        - name: etcd
+          image: {{ .Values.etcd.image }}
+          command: [etcd]
+          args:
+            - --name=$(POD_NAME)
+            - --data-dir=/var/lib/etcd/data
+            - --listen-client-urls=http://0.0.0.0:2379
+            - --advertise-client-urls=http://$(POD_NAME).etcd-hl.{{ $ns }}.svc:2379
+            - --listen-peer-urls=http://0.0.0.0:2380
+            - --initial-advertise-peer-urls=http://$(POD_NAME).etcd-hl.{{ $ns }}.svc:2380
+            - --initial-cluster={{ join "," $peers }}
+            - --initial-cluster-state=new
+            - --initial-cluster-token=taskflow-etcd-{{ $ns }}
+            - --listen-metrics-urls=http://0.0.0.0:2381
+            - --auto-compaction-retention=1h
+            - --quota-backend-bytes=134217728
+          env:
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+          ports:
+            - {name: client, containerPort: 2379}
+            - {name: peer, containerPort: 2380}
+            - {name: metrics, containerPort: 2381}
+          readinessProbe:
+            httpGet: {path: /health, port: metrics}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: "/health?serializable=true", port: metrics}
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources: {{- toYaml .Values.etcd.resources | nindent 12 }}
+          securityContext:
+            {{- include "platform.containerSecurity" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/etcd}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.etcd.storage }}
+---
+{{- /* Seed the dynamic configuration keys (config as code). */}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: etcd-seed-config
+  labels: {{- include "platform.labels" (dict "name" "etcd-seed" "root" .) | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 20
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: {{- include "platform.labels" (dict "name" "etcd-seed" "root" .) | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      {{- /* The etcd image has no shell: one etcdctl call per key, run in
+             order as init containers; the main container prints the result. */}}
+      initContainers:
+        {{- $i := 0 }}
+        {{- range $k, $v := .Values.etcd.config }}
+        - name: put-{{ $i }}
+          image: {{ $.Values.etcd.image }}
+          command: [etcdctl, --endpoints=http://etcd:2379, --dial-timeout=5s, put,
+                    "/taskflow/config/{{ $k }}", {{ $v | quote }}]
+          resources:
+            limits: {cpu: 100m, memory: 32Mi}
+          securityContext:
+            {{- include "platform.containerSecurity" $ | nindent 12 }}
+            readOnlyRootFilesystem: true
+        {{- $i = add1 $i }}
+        {{- end }}
+      containers:
+        - name: show
+          image: {{ .Values.etcd.image }}
+          command: [etcdctl, --endpoints=http://etcd:2379, get, /taskflow/config/, --prefix]
+          resources:
+            limits: {cpu: 100m, memory: 32Mi}
+          securityContext:
+            {{- include "platform.containerSecurity" . | nindent 12 }}
+            readOnlyRootFilesystem: true

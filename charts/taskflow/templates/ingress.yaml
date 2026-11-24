@@ -1,0 +1,49 @@
+{{- /*
+charts/taskflow/templates/ingress.yaml -- the only way in from outside.
+
+  https://<host>/api/...  -> api-gateway   (JWT, per-user rate limit, routing)
+  https://<host>/...      -> web-frontend  (static single-page app)
+
+One origin for the UI and the API, so the browser needs no CORS. TLS ends
+at the ingress-nginx controller with the certificate in tlsSecretName.
+The controller also applies a per-client-IP rate limit at the edge, before
+any request reaches a Pod.
+*/ -}}
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: taskflow
+  labels:
+    app.kubernetes.io/part-of: taskflow
+    taskflow.io/environment: {{ .Values.global.environment }}
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Attachments are capped at 10 MB by the service; leave headroom.
+    nginx.ingress.kubernetes.io/proxy-body-size: 12m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/limit-rps: {{ .Values.ingress.limitRps | quote }}
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: {{ .Values.ingress.limitBurstMultiplier | quote }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts: [{{ .Values.ingress.host | quote }}]
+      secretName: {{ .Values.ingress.tlsSecretName }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port: {name: http}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-frontend
+                port: {name: http}
+{{- end }}

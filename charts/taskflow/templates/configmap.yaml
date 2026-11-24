@@ -1,0 +1,19 @@
+{{- /*
+charts/taskflow/templates/configmap.yaml -- shared, non-secret configuration.
+Every service loads it with envFrom. Credentials are NOT here: they come
+from Secrets (taskflow-db, taskflow-jwt, taskflow-objectstore) that are
+delivered as SealedSecrets, never as plain values in Git.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskflow-config
+  labels:
+    app.kubernetes.io/part-of: taskflow
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    taskflow.io/environment: {{ .Values.global.environment }}
+data:
+  TASKFLOW_ENVIRONMENT: {{ .Values.global.environment | quote }}
+  {{- range $k, $v := .Values.global.config }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

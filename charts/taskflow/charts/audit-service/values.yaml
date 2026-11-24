@@ -1,0 +1,13 @@
+# charts/taskflow/charts/audit-service/values.yaml -- TaskFlow
+# What audit-service is and what it may talk to. Environment-level settings
+# (replicas, autoscaling, PDBs) are set by the umbrella chart's values.
+database:
+  enabled: true
+  name: audit   # own database and role on the shared PostgreSQL
+nats: true         # publishes/consumes events on NATS JetStream
+networkPolicy:
+  from:
+    - api-gateway
+  to:
+    - task-service
+    - user-service

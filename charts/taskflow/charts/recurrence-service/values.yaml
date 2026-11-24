@@ -1,0 +1,12 @@
+# charts/taskflow/charts/recurrence-service/values.yaml -- TaskFlow
+# What recurrence-service is and what it may talk to. Environment-level settings
+# (replicas, autoscaling, PDBs) are set by the umbrella chart's values.
+database:
+  enabled: true
+  name: recurrence   # own database and role on the shared PostgreSQL
+nats: true         # publishes/consumes events on NATS JetStream
+networkPolicy:
+  from:
+    - api-gateway
+  to:
+    - task-service

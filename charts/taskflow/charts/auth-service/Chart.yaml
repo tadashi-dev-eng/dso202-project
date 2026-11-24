@@ -1,0 +1,7 @@
+# charts/taskflow/charts/auth-service/Chart.yaml -- TaskFlow
+apiVersion: v2
+name: auth-service
+description: "Registration, login, token issuing and refresh"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

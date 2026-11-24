@@ -1,0 +1,2 @@
+{{- /* Every object for tag-service comes from the shared library chart. */}}
+{{ include "taskflow-lib.render" . }}

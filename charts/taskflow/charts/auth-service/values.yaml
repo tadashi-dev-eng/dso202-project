@@ -1,0 +1,12 @@
+# charts/taskflow/charts/auth-service/values.yaml -- TaskFlow
+# What auth-service is and what it may talk to. Environment-level settings
+# (replicas, autoscaling, PDBs) are set by the umbrella chart's values.
+database:
+  enabled: true
+  name: auth   # own database and role on the shared PostgreSQL
+jwt: true          # JWT_SECRET from the taskflow-jwt Secret
+networkPolicy:
+  from:
+    - api-gateway
+  to:
+    - user-service

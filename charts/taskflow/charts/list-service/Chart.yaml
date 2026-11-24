@@ -1,0 +1,7 @@
+# charts/taskflow/charts/list-service/Chart.yaml -- TaskFlow
+apiVersion: v2
+name: list-service
+description: "Todo lists, sharing and list roles"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

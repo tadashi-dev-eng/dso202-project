@@ -1,0 +1,2 @@
+{{- /* Every object for user-service comes from the shared library chart. */}}
+{{ include "taskflow-lib.render" . }}

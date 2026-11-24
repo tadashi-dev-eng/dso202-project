@@ -1,0 +1,7 @@
+# charts/taskflow/charts/attachment-service/Chart.yaml -- TaskFlow
+apiVersion: v2
+name: attachment-service
+description: "File upload and download for tasks (S3 object store)"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

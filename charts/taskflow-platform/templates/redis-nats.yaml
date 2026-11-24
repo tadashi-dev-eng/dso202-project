@@ -1,0 +1,138 @@
+{{- /*
+charts/taskflow-platform/templates/redis-nats.yaml
+
+redis  -- rate-limit windows (api-gateway), statistics (analytics-service)
+          and in-app notifications. Append-only file on a PVC so counters
+          survive a restart; maxmemory with LRU eviction keeps it bounded.
+nats   -- the event bus. JetStream file storage on a PVC: the TASKFLOW
+          stream and every durable consumer's position survive a restart,
+          so no event is lost while a consumer is down. :8222 serves the
+          monitoring endpoints (/healthz, /jsz).
+*/ -}}
+{{- $r := dict "name" "redis" "root" . }}
+{{- $n := dict "name" "nats" "root" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels: {{- include "platform.labels" $r | nindent 4 }}
+spec:
+  selector: {{- include "platform.selector" $r | nindent 4 }}
+  ports:
+    - {name: redis, port: 6379, targetPort: redis}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  labels: {{- include "platform.labels" $r | nindent 4 }}
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels: {{- include "platform.selector" $r | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "platform.labels" $r | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile: {type: RuntimeDefault}
+      nodeSelector:
+        taskflow.io/node-role: worker
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          args: ["--appendonly", "yes", "--dir", "/data",
+                 "--maxmemory", "{{ .Values.redis.maxMemory }}", "--maxmemory-policy", "allkeys-lru"]
+          ports:
+            - {name: redis, containerPort: 6379}
+          readinessProbe:
+            exec: {command: [redis-cli, ping]}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: redis}
+            periodSeconds: 15
+          resources: {{- toYaml .Values.redis.resources | nindent 12 }}
+          securityContext:
+            {{- include "platform.containerSecurity" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - {name: data, mountPath: /data}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  labels: {{- include "platform.labels" $n | nindent 4 }}
+spec:
+  selector: {{- include "platform.selector" $n | nindent 4 }}
+  ports:
+    - {name: client, port: 4222, targetPort: client}
+    - {name: monitor, port: 8222, targetPort: monitor}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+  labels: {{- include "platform.labels" $n | nindent 4 }}
+spec:
+  serviceName: nats
+  replicas: 1
+  selector:
+    matchLabels: {{- include "platform.selector" $n | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "platform.labels" $n | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      nodeSelector:
+        taskflow.io/node-role: worker
+      containers:
+        - name: nats
+          image: {{ .Values.nats.image }}
+          args: ["--jetstream", "--store_dir", "/data", "--http_port", "8222",
+                 "--server_name", "taskflow-nats"]
+          ports:
+            - {name: client, containerPort: 4222}
+            - {name: monitor, containerPort: 8222}
+          readinessProbe:
+            httpGet: {path: "/healthz?js-enabled-only=true", port: monitor}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: monitor}
+            periodSeconds: 15
+          resources: {{- toYaml .Values.nats.resources | nindent 12 }}
+          securityContext:
+            {{- include "platform.containerSecurity" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - {name: data, mountPath: /data}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.nats.storage }}

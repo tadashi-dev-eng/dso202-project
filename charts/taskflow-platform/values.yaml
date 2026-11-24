@@ -1,0 +1,61 @@
+# charts/taskflow-platform/values.yaml -- defaults (dev-sized).
+environment: dev
+storageClass: standard          # kind's local-path provisioner
+serviceMonitors: true
+networkPolicies: true
+observabilityNamespace: observability
+
+# Secrets are created outside the chart (SealedSecrets in GitOps):
+#   taskflow-postgres-admin  key: password
+#   taskflow-db              one key per service database (= its password)
+#   taskflow-objectstore     keys: accessKey, secretKey, s3.json
+secrets:
+  postgresAdmin: taskflow-postgres-admin
+  databases: taskflow-db
+  objectStore: taskflow-objectstore
+
+# One database and one login role per service (database-per-service).
+databases: [auth, users, lists, tasks, tags, comments, attachments, reminders,
+            recurrence, search, audit]
+
+postgres:
+  image: postgres:17.2-alpine
+  exporterImage: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+  storage: 2Gi
+  maxConnections: 200
+  resources:
+    requests: {cpu: 100m, memory: 192Mi}
+    limits: {cpu: "1", memory: 512Mi}
+
+redis:
+  image: redis:7.4.1-alpine
+  storage: 512Mi
+  maxMemory: 96mb
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {cpu: 250m, memory: 128Mi}
+
+nats:
+  image: nats:2.10.22-alpine
+  storage: 1Gi
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+
+etcd:
+  image: quay.io/coreos/etcd:v3.5.17
+  replicas: 3                   # tolerates the loss of one member
+  storage: 256Mi
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {cpu: 250m, memory: 128Mi}
+  # Dynamic configuration seeded into /taskflow/config/... on every sync.
+  config:
+    api-gateway/rate_limit_per_minute: "600"
+
+objectstore:
+  image: chrislusf/seaweedfs:3.97
+  storage: 2Gi
+  resources:
+    requests: {cpu: 20m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}

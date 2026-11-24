@@ -1,0 +1,71 @@
+# charts/taskflow/values.yaml -- TaskFlow umbrella chart defaults.
+# Environment files (values-dev.yaml, values-prod.yaml) override these.
+
+global:
+  environment: dev
+  imageRegistry: localhost:5001
+  imageTag: "0.1.0"          # Jenkins bumps per-service tags below in Git
+  serviceMonitors: true      # needs the Prometheus Operator CRDs
+  networkPolicies: true
+  observabilityNamespace: observability
+  # Non-secret settings shared by every service (ConfigMap taskflow-config).
+  # Changing anything here rolls every Pod (checksum annotation).
+  config:
+    LOG_LEVEL: INFO
+    DB_HOST: postgres
+    NATS_URL: nats://nats:4222
+    REDIS_URL: redis://redis:6379/0
+    ETCD_ENDPOINT: http://etcd:2379
+    S3_ENDPOINT: objectstore:8333
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability:4317
+    OTEL_TRACES_SAMPLER: parentbased_traceidratio
+    OTEL_TRACES_SAMPLER_ARG: "1.0"
+
+ingress:
+  enabled: true
+  className: nginx
+  host: app.taskflow.localhost
+  tlsSecretName: taskflow-tls
+  # Edge rate limit per client IP, in front of the gateway's per-user limit.
+  limitRps: 50
+  limitBurstMultiplier: 5
+
+# --- per-service environment settings -------------------------------------
+web-frontend:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests: {cpu: 10m, memory: 16Mi}
+    limits: {cpu: 200m, memory: 64Mi}
+api-gateway:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests: {cpu: 50m, memory: 112Mi}
+    limits: {cpu: "1", memory: 256Mi}
+auth-service:
+  enabled: true
+user-service:
+  enabled: true
+list-service:
+  enabled: true
+task-service:
+  enabled: true
+tag-service:
+  enabled: true
+comment-service:
+  enabled: true
+attachment-service:
+  enabled: true
+reminder-service:
+  enabled: true
+recurrence-service:
+  enabled: true
+notification-service:
+  enabled: true
+search-service:
+  enabled: true
+analytics-service:
+  enabled: true
+audit-service:
+  enabled: true

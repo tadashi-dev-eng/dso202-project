@@ -1,0 +1,67 @@
+$ helm list -n taskflow-dev
+NAME    	NAMESPACE   	REVISION	UPDATED                              	STATUS  	CHART                  	APP VERSION
+platform	taskflow-dev	5       	2026-11-24 23:47:02.793761 +0600 +06 	deployed	taskflow-platform-0.1.0	0.1.0      
+taskflow	taskflow-dev	2       	2026-11-24 23:47:43.4470178 +0600 +06	deployed	taskflow-0.1.0         	0.1.0      
+
+$ kubectl get pods,pvc -n taskflow-dev -o wide
+NAME                                        READY   STATUS    RESTARTS   AGE     IP            NODE               NOMINATED NODE   READINESS GATES
+pod/analytics-service-d7fff65bf-5dkgq       1/1     Running   0          2m42s   10.244.1.18   taskflow-worker2   <none>           <none>
+pod/api-gateway-59bd4cc9cb-8ktf5            1/1     Running   0          2m41s   10.244.1.24   taskflow-worker2   <none>           <none>
+pod/attachment-service-c9578b6-jzl62        1/1     Running   0          2m41s   10.244.2.20   taskflow-worker    <none>           <none>
+pod/audit-service-5bb88557-t8xbb            1/1     Running   0          2m42s   10.244.1.20   taskflow-worker2   <none>           <none>
+pod/auth-service-5b9b5bbbbd-hrbfh           1/1     Running   0          2m41s   10.244.2.18   taskflow-worker    <none>           <none>
+pod/comment-service-95b95dccb-sft2f         1/1     Running   0          2m41s   10.244.2.16   taskflow-worker    <none>           <none>
+pod/etcd-0                                  1/1     Running   0          32m     10.244.1.6    taskflow-worker2   <none>           <none>
+pod/etcd-1                                  1/1     Running   0          32m     10.244.2.10   taskflow-worker    <none>           <none>
+pod/etcd-2                                  1/1     Running   0          32m     10.244.2.9    taskflow-worker    <none>           <none>
+pod/list-service-648c78bcf9-4b56j           1/1     Running   0          2m41s   10.244.2.19   taskflow-worker    <none>           <none>
+pod/nats-0                                  1/1     Running   0          18m     10.244.1.11   taskflow-worker2   <none>           <none>
+pod/notification-service-557bd778d5-64tc9   1/1     Running   0          2m41s   10.244.1.23   taskflow-worker2   <none>           <none>
+pod/objectstore-0                           1/1     Running   0          11m     10.244.1.13   taskflow-worker2   <none>           <none>
+pod/postgres-0                              2/2     Running   0          3m19s   10.244.2.14   taskflow-worker    <none>           <none>
+pod/recurrence-service-d85c7f884-f9vhr      1/1     Running   0          2m41s   10.244.2.17   taskflow-worker    <none>           <none>
+pod/redis-0                                 1/1     Running   0          32m     10.244.2.7    taskflow-worker    <none>           <none>
+pod/reminder-service-577c67576f-hg5nh       1/1     Running   0          2m41s   10.244.1.21   taskflow-worker2   <none>           <none>
+pod/search-service-7778497c66-6kkpw         1/1     Running   0          2m42s   10.244.1.19   taskflow-worker2   <none>           <none>
+pod/tag-service-697b57468f-kddms            1/1     Running   0          2m41s   10.244.2.21   taskflow-worker    <none>           <none>
+pod/task-service-7d85584fd-vxdbd            1/1     Running   0          2m41s   10.244.1.22   taskflow-worker2   <none>           <none>
+pod/user-service-77cd9b676-htcvl            1/1     Running   0          2m42s   10.244.1.17   taskflow-worker2   <none>           <none>
+pod/web-frontend-7cd5c8c585-6tqht           1/1     Running   0          2m42s   10.244.2.15   taskflow-worker    <none>           <none>
+
+NAME                                       STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE     VOLUMEMODE
+persistentvolumeclaim/data-etcd-0          Bound    pvc-419416ba-754a-4e57-bc17-15010982554b   256Mi      RWO            standard       <unset>                 32m     Filesystem
+persistentvolumeclaim/data-etcd-1          Bound    pvc-4d12bb61-1b34-4fd0-ae75-6061b49e11cb   256Mi      RWO            standard       <unset>                 32m     Filesystem
+persistentvolumeclaim/data-etcd-2          Bound    pvc-b378241c-cd84-46ff-8a0e-470777c66b7a   256Mi      RWO            standard       <unset>                 32m     Filesystem
+persistentvolumeclaim/data-nats-0          Bound    pvc-8e8323da-203d-4b07-9c1c-124da13ec778   1Gi        RWO            standard       <unset>                 32m     Filesystem
+persistentvolumeclaim/data-objectstore-0   Bound    pvc-ed45d891-2c39-4655-b35c-e87f66c9fc46   2Gi        RWO            standard       <unset>                 21m     Filesystem
+persistentvolumeclaim/data-postgres-0      Bound    pvc-6ca8de20-5d86-4728-84ec-ccc4df716444   2Gi        RWO            standard       <unset>                 3m19s   Filesystem
+persistentvolumeclaim/data-redis-0         Bound    pvc-1e0495e8-6f8b-4336-a19f-4911236bcce3   512Mi      RWO            standard       <unset>                 32m     Filesystem
+
+$ python scripts/smoke_test.py --base https://dev.taskflow.localhost --insecure
+[PASS] api-gateway rejects a request without a token  (HTTP 401)
+[PASS] auth-service registers a user  (HTTP 201)
+[PASS] user-service returns the profile
+[PASS] auth-service rejects a bad refresh token  (HTTP 401)
+[PASS] list-service creates a list  (HTTP 201)
+[PASS] list-service hides another user's list  (HTTP 404)
+[PASS] list-service shares the list with Bob  (HTTP 201)
+[PASS] task-service creates a task  (HTTP 201)
+[PASS] task-service lets the shared member read it
+[PASS] tag-service tags the task  (HTTP 201/200)
+[PASS] comment-service adds a comment  (HTTP 201)
+[PASS] attachment-service stores a file  (HTTP 201)
+[PASS] attachment-service returns the same bytes  (HTTP 200)
+[PASS] reminder-service schedules a reminder  (HTTP 201)
+[PASS] recurrence-service stores a weekly rule  (HTTP 200)
+[PASS] task-service completes the task  (HTTP 200)
+[PASS] recurrence-service created the next occurrence
+[PASS] notification-service delivered the reminder
+[PASS] notification-service told Alice about Bob's comment
+[PASS] notification-service told Bob the task was completed
+[PASS] search-service indexed the comment from events  (Grafana «dashboards» next «8e9»«bf839»)
+[PASS] search-service is not reachable anonymously  (HTTP 401)
+[PASS] analytics-service counted the completion  (created=2 completed=1)
+[PASS] audit-service recorded the task's history  (attachment.added, comment.created, reminder.due, task.completed, task.created, task.tagged, task.updated)
+[PASS] web-frontend serves the app
+
+25/25 checks passed
